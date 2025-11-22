@@ -1,2 +1,4 @@
-/build
-template/webroot
+/target
+/out
+Cargo.lock
+*.log
