@@ -19,26 +19,25 @@
     { id: 'logs', icon: ICONS.description }
   ];
 
-  // Dynamic languages list
-  const localeFiles = import.meta.glob('../locales/*.json');
+  // Dynamically load all locale JSON files to extract available languages and display names.
+  // "eager: true" loads the content immediately, allowing us to read the "lang.display" field.
+  const localeModules = import.meta.glob('../locales/*.json', { eager: true });
   
-  const LANG_DISPLAY = {
-    en: 'English',
-    zhs: '中文',
-    zht: '繁體中文',
-    ja: '日本語',
-    ru: 'Русский',
-    es: 'Español'
-  };
-
-  const languages = Object.keys(localeFiles).map(path => {
-    // Improved regex to handle various filename formats (e.g. zhtw.json or zh-TW.json)
+  const languages = Object.entries(localeModules).map(([path, mod]) => {
+    // Extract language code from filename (e.g., "../locales/zhs.json" -> "zhs")
     const match = path.match(/\/([^/]+)\.json$/);
     const code = match ? match[1] : 'en';
-    return {
-      code,
-      name: LANG_DISPLAY[code] || code.toUpperCase()
-    };
+    
+    // Extract display name from the JSON content (mod.default is the JSON object)
+    // Fallback to uppercase code if display name is missing
+    const name = mod.default?.lang?.display || code.toUpperCase();
+    
+    return { code, name };
+  }).sort((a, b) => {
+    // Optional: Keep English at the top, sort others alphabetically
+    if (a.code === 'en') return -1;
+    if (b.code === 'en') return 1;
+    return a.code.localeCompare(b.code);
   });
 
   $effect(() => {
