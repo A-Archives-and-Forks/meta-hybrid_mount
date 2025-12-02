@@ -32,7 +32,6 @@ const SELINUX_XATTR: &str = "security.selinux";
 const XATTR_TEST_FILE: &str = ".xattr_test";
 const DEFAULT_CONTEXT: &str = "u:object_r:system_file:s0";
 
-/// A simple formatter to enforce "[LEVEL] Message" format without timestamps.
 struct SimpleFormatter;
 
 impl<S, N> FormatEvent<S, N> for SimpleFormatter
@@ -53,7 +52,6 @@ where
     }
 }
 
-/// Initializes the tracing logging system.
 pub fn init_logging(verbose: bool, log_path: &Path) -> Result<WorkerGuard> {
     if let Some(parent) = log_path.parent() {
         create_dir_all(parent)?;
@@ -182,6 +180,9 @@ pub fn mount_tmpfs(target: &Path) -> Result<()> {
 
 pub fn mount_image(image_path: &Path, target: &Path) -> Result<()> {
     ensure_dir_exists(target)?;
+    
+    lsetfilecon(image_path, "u:object_r:ksu_file:s0").ok();
+
     let status = Command::new("mount")
         .args(["-t", "ext4", "-o", "loop,rw,noatime"])
         .arg(image_path)
@@ -195,7 +196,6 @@ pub fn mount_image(image_path: &Path, target: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Attempts to repair an ext4 image using e2fsck.
 pub fn repair_image(image_path: &Path) -> Result<()> {
     log::info!("Running e2fsck on {}", image_path.display());
     let status = Command::new("e2fsck")

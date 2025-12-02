@@ -48,7 +48,6 @@ pub fn perform_sync(modules: &[Module], target_base: &Path) -> Result<()> {
     Ok(())
 }
 
-/// Removes directories in the target base that do not correspond to any active module.
 fn prune_orphaned_modules(modules: &[Module], target_base: &Path) -> Result<()> {
     if !target_base.exists() { return Ok(()); }
 
@@ -78,8 +77,6 @@ fn prune_orphaned_modules(modules: &[Module], target_base: &Path) -> Result<()> 
     Ok(())
 }
 
-/// Determines if a module needs to be synced.
-/// Compares `module.prop` content as a heuristic for version/content changes.
 fn should_sync(src: &Path, dst: &Path) -> bool {
     if !dst.exists() {
         return true;
@@ -112,11 +109,21 @@ fn repair_module_contexts(module_root: &Path, module_id: &str) {
 fn recursive_context_repair(base: &Path, current: &Path) -> Result<()> {
     if !current.exists() { return Ok(()); }
     
-    let relative = current.strip_prefix(base)?;
-    let system_path = Path::new("/").join(relative);
+    let file_name = current.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
-    if system_path.exists() {
-        let _ = utils::copy_path_context(&system_path, current);
+    if file_name == "upperdir" || file_name == "workdir" {
+         if let Some(parent) = current.parent() {
+             if let Ok(ctx) = utils::lgetfilecon(parent) {
+                 let _ = utils::lsetfilecon(current, &ctx);
+             }
+         }
+    } else {
+        let relative = current.strip_prefix(base)?;
+        let system_path = Path::new("/").join(relative);
+
+        if system_path.exists() {
+            let _ = utils::copy_path_context(&system_path, current);
+        }
     }
 
     if current.is_dir() {
