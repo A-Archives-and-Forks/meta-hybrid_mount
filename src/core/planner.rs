@@ -4,14 +4,14 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use crate::{conf::config, defs, core::inventory::Module};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct OverlayOperation {
     pub partition_name: String,
     pub target: String,
     pub lowerdirs: Vec<PathBuf>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HymoOperation {
     pub module_id: String,
     pub source: PathBuf,

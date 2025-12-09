@@ -108,7 +108,7 @@ pub fn execute(plan: &MountPlan, config: &config::Config) -> Result<ExecutionRes
                      merged_overlay_ops.push(OverlayOperation {
                         partition_name: item.partition,
                         target: target_path.to_string_lossy().to_string(),
-                        lowerdirs: vec![item.source],
+                        lowerdirs: vec![item.source.clone()],
                     });
                 } else {
                     log::warn!("Cannot fallback Hymo module for non-existent partition: {}", item.partition);
@@ -127,7 +127,7 @@ pub fn execute(plan: &MountPlan, config: &config::Config) -> Result<ExecutionRes
     let overlay_results: Vec<OverlayResult> = merged_overlay_ops.par_iter()
         .map(|op| {
             let lowerdir_strings: Vec<String> = op.lowerdirs.iter()
-                .map(|p| p.display().to_string())
+                .map(|p: &PathBuf| p.display().to_string())
                 .collect();
                 
             log::info!("Mounting {} [OVERLAY] ({} layers)", op.target, lowerdir_strings.len());
