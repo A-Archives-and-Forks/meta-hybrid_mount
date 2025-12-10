@@ -152,8 +152,6 @@
   /* Full pill shape */
   border-radius: 9999px; 
   padding: 10px 20px;
-  /* Subtle shadow for floating element */
-  box-shadow: var(--md-sys-elevation-2); 
   display: flex;
   align-items: center;
   gap: 8px;
