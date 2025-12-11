@@ -114,7 +114,8 @@
   <div class="filter-controls">
     <div class="checkbox-wrapper">
         <input type="checkbox" id="show-unmounted" bind:checked={showUnmounted} />
-        <label for="show-unmounted" title="Show unmounted modules">{store.L.modules?.filterAll ?? 'All'}</label>
+        <label for="show-unmounted" title="Show unmounted modules">{store.L.modules?.filterAll ??
+      'All'}</label>
     </div>
     <div class="vertical-divider"></div>
     <span class="filter-label-text">{store.L.modules?.filterLabel}</span>
@@ -193,43 +194,37 @@
             <p class="module-meta">{store.L.modules?.author ??
               'Author'}: {mod.author || (store.L.modules?.unknown ?? 'Unknown')}</p>
             {#if !mod.is_mounted}
-                <div class="status-alert">
+                 <div class="status-alert">
                     <svg viewBox="0 0 24 24" width="16" height="16"><path d={ICONS.info} fill="currentColor"/></svg>
                     <span>This module is currently not mounted.</span>
                 </div>
             {/if}
             <div class="config-section">
               <div class="config-row">
-                <span class="config-label">{store.L.modules?.defaultMode ??
-                  'Default Strategy'}:</span>
+                <span class="config-label">{store.L.modules?.defaultMode ?? 'Default Strategy'}:</span>
                 <div class="text-field compact-select">
                   <select 
                     bind:value={mod.rules.default_mode}
                     onclick={(e) => e.stopPropagation()}
                   >
-                    <option value="overlay">{store.L.modules?.modes?.auto ??
-                      'OverlayFS (Auto)'}</option>
-                    <option value="magic">{store.L.modules?.modes?.magic ??
-                      'Magic Mount'}</option>
+                    <option value="overlay">{store.L.modules?.modes?.auto ?? 'OverlayFS (Auto)'}</option>
+                    <option value="magic">{store.L.modules?.modes?.magic ?? 'Magic Mount'}</option>
                     {#if store.storage?.hymofs_available}
-                      <option value="hymofs">{store.L.modules?.modes?.hymo ??
-                        'HymoFS'}</option>
+                      <option value="hymofs">{store.L.modules?.modes?.hymo ?? 'HymoFS'}</option>
                     {/if}
-                    <option value="ignore">{store.L.modules?.modes?.ignore ??
-                      'Disable (Ignore)'}</option>
+                    <option value="ignore">{store.L.modules?.modes?.ignore ?? 'Disable (Ignore)'}</option>
                   </select>
                 </div>
               </div>
               <div class="paths-editor">
                  <div class="paths-header">
                      <span class="config-label">{store.L.modules?.pathRules ?? 'Path Overrides'}:</span>
-                     <button class="btn-icon add-rule" onclick={() => addPathRule(mod)} title={store.L.modules?.addRule ??
-                         'Add Rule'}>
+                     <button class="btn-icon add-rule" onclick={() => addPathRule(mod)} title={store.L.modules?.addRule ?? 'Add Rule'}>
                          <svg viewBox="0 0 24 24" width="20" height="20"><path d={ICONS.add} fill="currentColor"/></svg>
                      </button>
                  </div>
                   {#if mod.rules.paths && Object.keys(mod.rules.paths).length > 0}
-                    <div class="path-list">
+                     <div class="path-list">
                         {#each Object.entries(mod.rules.paths) as [path, mode]}
                             <div class="path-row">
                                 <input 
@@ -237,34 +232,28 @@
                                     class="path-input" 
                                     value={path} 
                                     onchange={(e) => updatePathKey(mod, path, e.currentTarget.value)}
-                                    placeholder={store.L.modules?.placeholder ??
-                                    "e.g. system/fonts"}
+                                    placeholder={store.L.modules?.placeholder ?? "e.g. system/fonts"}
                                 />
                                 <select 
                                     class="path-mode-select"
                                     value={mode}
                                     onchange={(e) => updatePathMode(mod, path, e.currentTarget.value as MountMode)}
                                 >
-                                    <option value="overlay">{store.L.modules?.modes?.short?.auto ??
-                                      'Overlay'}</option>
-                                    <option value="magic">{store.L.modules?.modes?.short?.magic ??
-                                      'Magic'}</option>
+                                    <option value="overlay">{store.L.modules?.modes?.short?.auto ?? 'Overlay'}</option>
+                                    <option value="magic">{store.L.modules?.modes?.short?.magic ?? 'Magic'}</option>
                                     {#if store.storage?.hymofs_available}
-                                        <option value="hymofs">{store.L.modules?.modes?.short?.hymo ??
-                                          'HymoFS'}</option>
+                                        <option value="hymofs">{store.L.modules?.modes?.short?.hymo ?? 'HymoFS'}</option>
                                     {/if}
-                                    <option value="ignore">{store.L.modules?.modes?.short?.ignore ??
-                                      'Ignore'}</option>
+                                    <option value="ignore">{store.L.modules?.modes?.short?.ignore ?? 'Ignore'}</option>
                                 </select>
                                 <button class="btn-icon delete" onclick={() => removePathRule(mod, path)} title="Remove rule">
-                                     <svg viewBox="0 0 24 24" width="18" height="18"><path d={ICONS.delete} fill="currentColor"/></svg>
+                                    <svg viewBox="0 0 24 24" width="18" height="18"><path d={ICONS.delete} fill="currentColor"/></svg>
                                 </button>
                             </div>
                         {/each}
                     </div>
                  {:else}
-                    <div class="empty-paths">{store.L.modules?.noRules ??
-                      'No path overrides defined.'}</div>
+                    <div class="empty-paths">{store.L.modules?.noRules ?? 'No path overrides defined.'}</div>
                  {/if}
               </div>
             </div>
@@ -281,7 +270,6 @@
   <div class="spacer"></div>
   <button class="btn-filled" onclick={save} disabled={store.saving.modules || !isDirty}>
     <svg viewBox="0 0 24 24" width="18" height="18"><path d={ICONS.save} fill="currentColor"/></svg>
-    {store.saving.modules ?
-      store.L.common?.saving : store.L.modules?.save}
+    {store.saving.modules ? store.L.common?.saving : store.L.modules?.save}
   </button>
 </BottomActions>

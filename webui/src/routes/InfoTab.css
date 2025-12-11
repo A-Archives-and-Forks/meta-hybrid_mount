@@ -26,10 +26,11 @@
 .app-logo svg {
   width: 100%;
   height: 100%;
+  overflow: visible;
 }
 .app-name {
   font-size: 32px;  
-  font-weight: 400;
+  font-weight: 800;
   color: var(--md-sys-color-on-surface);
   margin-top: 8px;
   letter-spacing: -0.5px;
@@ -149,4 +150,57 @@
   color: var(--md-sys-color-on-error-container);
   border-radius: 24px;
   margin: 0 12px;
+}
+
+@keyframes logo-spin-cw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes logo-spin-ccw {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+@keyframes logo-pulse-fast {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.9); opacity: 0.8; }
+}
+
+.logo-base-track {
+    fill: none;
+    stroke: var(--md-sys-color-surface-variant);
+    opacity: 0.3;
+    stroke-width: 1;
+}
+
+.logo-arc {
+    fill: none;
+    stroke-linecap: round;
+    transform-origin: center;
+}
+
+.logo-arc-outer {
+    stroke: var(--md-sys-color-tertiary);
+    stroke-width: 4;
+    animation: logo-spin-cw 12s linear infinite;
+}
+
+.logo-arc-mid {
+    stroke: var(--md-sys-color-secondary);
+    stroke-width: 5;
+    animation: logo-spin-ccw 8s ease-in-out infinite;
+}
+
+.logo-arc-inner {
+    stroke: var(--md-sys-color-primary);
+    stroke-width: 6;
+    animation: logo-spin-cw 4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.logo-core {
+    fill: var(--md-sys-color-primary);
+    transform-origin: center;
+    animation: logo-pulse-fast 2s ease-in-out infinite;
+    filter: drop-shadow(0 0 6px var(--md-sys-color-primary-container));
 }
