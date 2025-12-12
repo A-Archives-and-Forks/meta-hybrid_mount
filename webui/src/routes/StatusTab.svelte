@@ -6,13 +6,22 @@
   import Skeleton from '../components/Skeleton.svelte';
   import BottomActions from '../components/BottomActions.svelte';
   import './StatusTab.css';
+
   onMount(() => {
     store.loadStatus();
   });
+
   let displayPartitions = $derived([...new Set([...BUILTIN_PARTITIONS, ...(store.config?.partitions || [])])]);
   let storageLabel = $derived(store.storage?.type === 'tmpfs' ? store.systemInfo?.mountBase : store.L?.status?.storageDesc);
   let mountedCount = $derived(store.modules?.filter(m => m.is_mounted).length ?? 0);
+  
+  function getDiagColor(level) {
+      if (level === 'Critical') return 'var(--md-sys-color-error)';
+      if (level === 'Warning') return 'var(--md-sys-color-tertiary)';
+      return 'var(--md-sys-color-primary)';
+  }
 </script>
+
 <div class="dashboard-grid">
   <div class="storage-card">
     {#if store.loading.status}
@@ -24,7 +33,7 @@
         <Skeleton width="120px" height="64px" />
       </div>
       <div class="progress-track progress-track-skeleton" style="margin-top: 24px;">
-        <Skeleton width="100%" height="12px" borderRadius="6px" />
+         <Skeleton width="100%" height="12px" borderRadius="6px" />
       </div>
       <div class="storage-details">
         <Skeleton width="150px" height="12px" />
@@ -44,7 +53,7 @@
                 {store.storage.type?.toUpperCase()}
               </span>
              {/if}
-        </div>
+         </div>
         <div class="storage-value-group">
             <span class="storage-value">{store.storage?.percent ?? '0%'}</span>
             <span class="storage-unit">Used</span>
@@ -61,6 +70,7 @@
       </div>
     {/if}
   </div>
+
   <div class="stats-row">
     <div class="stat-card">
       {#if store.loading.status}
@@ -81,6 +91,7 @@
       {/if}
     </div>
   </div>
+
   <div class="mode-card">
     <div class="mode-title">{store.L?.status?.activePartitions ?? 'Partitions'}</div>
     <div class="partition-grid">
@@ -97,6 +108,7 @@
       {/if}
     </div>
   </div>
+
   <div class="mode-card">
     <div class="mode-title">{store.L?.status?.sysInfoTitle ?? 'System Info'}</div>
     <div class="info-grid">
@@ -122,7 +134,9 @@
           <Skeleton width="50%" height="16px" />
         {:else}
           <span class="info-val {store.storage?.hymofs_available ? 'text-success' : 'text-disabled'}">
-            {store.storage?.hymofs_available ? 'Active' : 'Not Detected'}
+            {store.storage?.hymofs_available ? 
+              `Active${store.storage.hymofs_version ? ` (v${store.storage.hymofs_version})` : ''}` : 
+              'Not Detected'}
           </span>
         {/if}
       </div>
@@ -136,6 +150,7 @@
       </div>
     </div>
   </div>
+
   <div class="mode-card">
     <div class="mode-title" style="margin-bottom: 8px;">{store.L?.status?.modeStats ?? 'Mode Stats'}</div>
     {#if store.loading.status}
@@ -170,7 +185,35 @@
       </div>
     {/if}
   </div>
+
+  <div class="mode-card">
+      <div class="mode-title">System Health</div>
+      {#if store.loading.diagnostics}
+        <div class="skeleton-group">
+            <Skeleton width="100%" height="20px" />
+            <Skeleton width="80%" height="20px" />
+        </div>
+      {:else if store.diagnostics.length === 0}
+        <div style="opacity: 0.6; font-size: 14px; padding: 8px 0;">All checks passed. System is healthy.</div>
+      {:else}
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            {#each store.diagnostics as issue}
+                <div style="display: flex; gap: 12px; font-size: 13px; align-items: start; background: rgba(0,0,0,0.03); padding: 8px; border-radius: 8px;">
+                    <div style="color: {getDiagColor(issue.level)}; font-weight: 700; font-size: 11px; text-transform: uppercase; margin-top: 2px;">
+                        {issue.level}
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="font-weight: 600; margin-bottom: 2px;">{issue.context}</div>
+                        <div style="opacity: 0.8;">{issue.message}</div>
+                    </div>
+                </div>
+            {/each}
+        </div>
+      {/if}
+  </div>
+
 </div>
+
 <BottomActions>
   <div class="spacer"></div>
   <button 

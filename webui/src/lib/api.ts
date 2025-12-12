@@ -1,24 +1,30 @@
 import { DEFAULT_CONFIG, PATHS } from './constants';
 import { APP_VERSION } from './constants_gen';
 import { MockAPI } from './api.mock';
-import type { AppConfig, Module, StorageStatus, SystemInfo, DeviceInfo, ModuleRules } from './types';
+import type { AppConfig, Module, StorageStatus, SystemInfo, DeviceInfo, ModuleRules, ConflictEntry, DiagnosticIssue } from './types';
+
 interface KsuExecResult {
   errno: number;
   stdout: string;
   stderr: string;
 }
+
 interface KsuModule {
   exec: (cmd: string, options?: any) => Promise<KsuExecResult>;
 }
+
 let ksuExec: KsuModule['exec'] | null = null;
+
 try {
   const ksu = await import('kernelsu').catch(() => null);
   ksuExec = ksu ? ksu.exec : null;
 } catch (e) {
   console.warn("KernelSU module not found, defaulting to Mock/Fallback.");
 }
+
 const shouldUseMock = import.meta.env.DEV || !ksuExec;
 console.log(`[API Init] Mode: ${shouldUseMock ? '🛠️ MOCK (Dev/Browser)' : '🚀 REAL (Device)'}`);
+
 function formatBytes(bytes: number, decimals = 2): string {
   if (!+bytes) return '0 B';
   const k = 1024;
@@ -27,6 +33,7 @@ function formatBytes(bytes: number, decimals = 2): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
+
 function stringToHex(str: string): string {
   let bytes: Uint8Array;
   if (typeof TextEncoder !== 'undefined') {
@@ -45,6 +52,7 @@ function stringToHex(str: string): string {
   }
   return hex;
 }
+
 const RealAPI = {
   loadConfig: async (): Promise<AppConfig> => {
     if (!ksuExec) return DEFAULT_CONFIG;
@@ -120,7 +128,8 @@ const RealAPI = {
           percent: `${state.storage_percent ?? 0}%`,
           size: formatBytes(state.storage_total ?? 0),
           used: formatBytes(state.storage_used ?? 0),
-          hymofs_available: state.hymofs_available ?? false
+          hymofs_available: state.hymofs_available ?? false,
+          hymofs_version: state.hymofs_version
         };
       }
     } catch (e) {
@@ -237,6 +246,33 @@ const RealAPI = {
       }
     } catch (e) {}
     return null;
+  },
+  getConflicts: async (): Promise<ConflictEntry[]> => {
+    if (!ksuExec) return [];
+    const cmd = `${PATHS.BINARY} conflicts`;
+    try {
+        const { errno, stdout } = await ksuExec(cmd);
+        if (errno === 0 && stdout) {
+            return JSON.parse(stdout);
+        }
+    } catch(e) {
+        console.error("Failed to get conflicts:", e);
+    }
+    return [];
+  },
+  getDiagnostics: async (): Promise<DiagnosticIssue[]> => {
+      if (!ksuExec) return [];
+      const cmd = `${PATHS.BINARY} diagnostics`;
+      try {
+          const { errno, stdout } = await ksuExec(cmd);
+          if (errno === 0 && stdout) {
+              return JSON.parse(stdout);
+          }
+      } catch(e) {
+          console.error("Failed to get diagnostics:", e);
+      }
+      return [];
   }
 };
+
 export const API = shouldUseMock ? MockAPI : RealAPI;

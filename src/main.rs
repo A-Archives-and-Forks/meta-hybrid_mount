@@ -8,6 +8,8 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use clap::Parser;
 use mimalloc::MiMalloc;
+use rustix::mount::UnmountFlags;
+use serde::Serialize;
 
 use conf::{
     cli::{Cli, Commands},
@@ -22,9 +24,17 @@ use core::{
     sync,
     modules,
 };
+use mount::{magic, hymofs::HymoFs};
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
+
+#[derive(Serialize)]
+struct DiagnosticIssueJson {
+    level: String,
+    context: String,
+    message: String,
+}
 
 fn load_config(cli: &Cli) -> Result<Config> {
     if let Some(config_path) = &cli.config {
@@ -96,6 +106,31 @@ fn run() -> Result<()> {
                 let config = load_config(&cli)?;
                 modules::print_list(&config)?; 
                 return Ok(()); 
+            },
+            Commands::Conflicts => {
+                let config = load_config(&cli)?;
+                let module_list = inventory::scan(&config.moduledir, &config)?;
+                let plan = planner::generate(&config, &module_list, &config.moduledir)?;
+                let report = plan.analyze_conflicts();
+                println!("{}", serde_json::to_string(&report.details)?);
+                return Ok(());
+            },
+            Commands::Diagnostics => {
+                let config = load_config(&cli)?;
+                let module_list = inventory::scan(&config.moduledir, &config)?;
+                let plan = planner::generate(&config, &module_list, &config.moduledir)?;
+                let issues = executor::diagnose_plan(&plan);
+                let json_issues: Vec<DiagnosticIssueJson> = issues.into_iter().map(|i| DiagnosticIssueJson {
+                    level: match i.level {
+                        executor::DiagnosticLevel::Info => "Info".to_string(),
+                        executor::DiagnosticLevel::Warning => "Warning".to_string(),
+                        executor::DiagnosticLevel::Critical => "Critical".to_string(),
+                    },
+                    context: i.context,
+                    message: i.message,
+                }).collect();
+                println!("{}", serde_json::to_string(&json_issues)?);
+                return Ok(());
             }
         }
     }

@@ -1,7 +1,9 @@
 import { APP_VERSION } from './constants_gen';
 import { DEFAULT_CONFIG } from './constants';
-import type { AppConfig, DeviceInfo, Module, StorageStatus, SystemInfo, ModuleRules } from './types';
+import type { AppConfig, DeviceInfo, Module, StorageStatus, SystemInfo, ModuleRules, ConflictEntry, DiagnosticIssue } from './types';
+
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export const MockAPI = {
   async loadConfig(): Promise<AppConfig> {
     await delay(300);
@@ -92,7 +94,8 @@ export const MockAPI = {
       size: '1024 MB',
       percent: '12.5%',
       type: 'tmpfs',
-      hymofs_available: true
+      hymofs_available: true,
+      hymofs_version: 4
     };
   },
   async getSystemInfo(): Promise<SystemInfo> {
@@ -107,6 +110,20 @@ export const MockAPI = {
   async fetchSystemColor(): Promise<string | null> {
     await delay(100);
     return '#8AB4F8';
+  },
+  async getConflicts(): Promise<ConflictEntry[]> {
+    await delay(500);
+    return [
+        { partition: "system", relative_path: "etc/hosts", contending_modules: ["magisk_module_1", "overlay_module_2"] },
+        { partition: "vendor", relative_path: "etc/audio_policy_configuration.xml", contending_modules: ["sound_mod", "dolby"] }
+    ];
+  },
+  async getDiagnostics(): Promise<DiagnosticIssue[]> {
+      await delay(500);
+      return [
+          { level: "Info", context: "System", message: "OverlayFS is available" },
+          { level: "Warning", context: "magisk_module_1", message: "Dead absolute symlink: system/bin/test -> /dev/null" }
+      ];
   },
   openLink(url: string): void {
     console.log('[Mock] Opening link:', url);

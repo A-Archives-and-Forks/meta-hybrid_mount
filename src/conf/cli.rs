@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use super::config::CONFIG_FILE_DEFAULT;
+
 #[derive(Parser, Debug)]
 #[command(name = "meta-hybrid", version, about = "Hybrid Mount Metamodule")]
 pub struct Cli {
@@ -21,6 +22,7 @@ pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
+
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     GenConfig {
@@ -42,4 +44,6 @@ pub enum Commands {
     },
     Storage,
     Modules,
+    Conflicts,
+    Diagnostics,
 }

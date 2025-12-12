@@ -10,7 +10,9 @@ import type {
   DeviceInfo, 
   ToastMessage, 
   LanguageOption,
-  ModeStats
+  ModeStats,
+  ConflictEntry,
+  DiagnosticIssue
 } from './types';
 
 const localeModules = import.meta.glob('../locales/*.json', { eager: true });
@@ -54,11 +56,15 @@ const createStore = () => {
   });
   let systemInfo = $state<SystemInfo>({ kernel: '-', selinux: '-', mountBase: '-', activeMounts: [] });
   let activePartitions = $state<string[]>([]);
+  let conflicts = $state<ConflictEntry[]>([]);
+  let diagnostics = $state<DiagnosticIssue[]>([]);
   
   let loadingConfig = $state(false);
   let loadingModules = $state(false);
   let loadingLogs = $state(false);
   let loadingStatus = $state(false);
+  let loadingConflicts = $state(false);
+  let loadingDiagnostics = $state(false);
   let savingConfig = $state(false);
   let savingModules = $state(false);
 
@@ -219,8 +225,26 @@ const createStore = () => {
       if (modules.length === 0) {
         await loadModules();
       }
+      
+      loadingDiagnostics = true;
+      diagnostics = await API.getDiagnostics();
+      loadingDiagnostics = false;
+
     } catch (e) {}
     loadingStatus = false;
+  }
+
+  async function loadConflicts() {
+      loadingConflicts = true;
+      try {
+          conflicts = await API.getConflicts();
+          if (conflicts.length === 0) {
+              showToast("No conflicts detected", "success");
+          }
+      } catch (e) {
+          showToast("Failed to check conflicts", "error");
+      }
+      loadingConflicts = false;
   }
 
   return {
@@ -254,13 +278,18 @@ const createStore = () => {
     get storage() { return storage; },
     get systemInfo() { return systemInfo; },
     get activePartitions() { return activePartitions; },
+    get conflicts() { return conflicts; },
+    loadConflicts,
+    get diagnostics() { return diagnostics; },
     loadStatus,
     get loading() {
       return {
         config: loadingConfig,
         modules: loadingModules,
         logs: loadingLogs,
-        status: loadingStatus
+        status: loadingStatus,
+        conflicts: loadingConflicts,
+        diagnostics: loadingDiagnostics
       };
     },
     get saving() {

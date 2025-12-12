@@ -11,11 +11,14 @@ export interface AppConfig {
   dry_run: boolean;
   logfile?: string;
 }
+
 export type MountMode = 'overlay' | 'hymofs' | 'magic' | 'ignore';
+
 export interface ModuleRules {
   default_mode: MountMode;
   paths: Record<string, MountMode>;
 }
+
 export interface Module {
   id: string;
   name: string;
@@ -28,6 +31,7 @@ export interface Module {
   enabled?: boolean;
   source_path?: string;
 }
+
 export interface StorageStatus {
   size: string;
   used: string;
@@ -35,7 +39,9 @@ export interface StorageStatus {
   type: 'tmpfs' | 'ext4' | 'unknown' | null;
   error?: string;
   hymofs_available: boolean;
+  hymofs_version?: number;
 }
+
 export interface SystemInfo {
   kernel: string;
   selinux: string;
@@ -43,24 +49,40 @@ export interface SystemInfo {
   activeMounts: string[];
   zygisksuEnforce?: string;
 }
+
 export interface DeviceInfo {
   model: string;
   android: string;
   kernel: string;
   selinux: string;
 }
+
 export interface ToastMessage {
   id: string;
   text: string;
   type: 'info' | 'success' | 'error';
   visible: boolean;
 }
+
 export interface LanguageOption {
   code: string;
   name: string;
 }
+
 export interface ModeStats {
   auto: number;
   magic: number;
   hymofs: number;
+}
+
+export interface ConflictEntry {
+  partition: string;
+  relative_path: string;
+  contending_modules: string[];
+}
+
+export interface DiagnosticIssue {
+  level: 'Info' | 'Warning' | 'Critical';
+  context: string;
+  message: string;
 }

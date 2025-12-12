@@ -8,14 +8,18 @@
   import { API } from '../lib/api';
   import type { Module, MountMode } from '../lib/types';
   import './ModulesTab.css';
+
   let searchQuery = $state('');
   let filterType = $state('all');
   let showUnmounted = $state(false); 
   let expandedId = $state<string | null>(null);
   let initialRulesSnapshot = $state<Record<string, string>>({});
+  let showConflicts = $state(false);
+
   onMount(() => {
     load();
   });
+
   function load() {
     store.loadModules().then(() => {
         const snapshot: Record<string, string> = {};
@@ -25,12 +29,15 @@
         initialRulesSnapshot = snapshot;
     });
   }
+
   let dirtyModules = $derived(store.modules.filter(m => {
       const initial = initialRulesSnapshot[m.id];
       if (!initial) return false;
       return JSON.stringify(m.rules) !== initial;
   }));
+
   let isDirty = $derived(dirtyModules.length > 0);
+
   async function save() {
     store.saving.modules = true;
     try {
@@ -46,6 +53,7 @@
         store.saving.modules = false;
     }
   }
+
   let filteredModules = $derived(store.modules.filter(m => {
     const q = searchQuery.toLowerCase();
     const matchSearch = m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q);
@@ -53,24 +61,29 @@
     const matchMounted = showUnmounted || m.is_mounted;
     return matchSearch && matchFilter && matchMounted;
   }));
+
   function toggleExpand(id: string) {
     expandedId = expandedId === id ? null : id;
   }
+
   function handleKeydown(e: KeyboardEvent, id: string) {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       toggleExpand(id);
     }
   }
+
   function getModeLabel(mod: Module) {
       const m = store.L.modules?.modes;
       if (!mod.is_mounted) return m?.none ?? 'None';
+      
       const mode = mod.rules.default_mode;
       if (mode === 'magic') return m?.magic ?? 'Magic Mount';
       if (mode === 'hymofs') return m?.hymo ?? 'HymoFS';
       if (mode === 'ignore') return m?.ignore ?? 'Ignore';
       return m?.auto ?? 'OverlayFS';
   }
+
   function addPathRule(mod: Module) {
       if (!mod.rules.paths) mod.rules.paths = {};
       let newKey = "new/path";
@@ -81,10 +94,12 @@
       mod.rules.paths[newKey] = 'magic';
       mod.rules = { ...mod.rules };
   }
+
   function removePathRule(mod: Module, path: string) {
       delete mod.rules.paths[path];
       mod.rules = { ...mod.rules };
   }
+
   function updatePathKey(mod: Module, oldPath: string, newPath: string) {
       if (oldPath === newPath) return;
       if (!newPath.trim()) return;
@@ -93,16 +108,56 @@
       mod.rules.paths[newPath] = mode;
       mod.rules = { ...mod.rules };
   }
+
   function updatePathMode(mod: Module, path: string, mode: MountMode) {
       mod.rules.paths[path] = mode;
       mod.rules = { ...mod.rules };
   }
+
+  async function checkConflicts() {
+      showConflicts = !showConflicts;
+      if (showConflicts && store.conflicts.length === 0) {
+          await store.loadConflicts();
+      }
+  }
 </script>
-<div class="md3-card desc-card">
-  <p class="desc-text">
+
+<div class="md3-card desc-card" style="padding-bottom: 8px;">
+  <p class="desc-text" style="margin-bottom: 12px;">
     {store.L.modules?.desc}
   </p>
+  <button class="btn-tonal" style="width: 100%; height: 36px; font-size: 13px;" onclick={checkConflicts}>
+    {showConflicts ? 'Hide Conflicts' : 'Check Conflicts'}
+  </button>
 </div>
+
+{#if showConflicts}
+    <div class="md3-card" transition:slide>
+        <div style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--md-sys-color-primary);">
+            File Conflicts
+        </div>
+        {#if store.loading.conflicts}
+            <Skeleton width="100%" height="24px" />
+            <Skeleton width="100%" height="24px" />
+        {:else if store.conflicts.length === 0}
+            <div style="font-size: 13px; opacity: 0.6;">No file conflicts detected.</div>
+        {:else}
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                {#each store.conflicts as conflict}
+                    <div style="font-size: 12px; background: rgba(0,0,0,0.03); padding: 8px; border-radius: 8px;">
+                        <div style="font-family: var(--md-ref-typeface-mono); margin-bottom: 4px;">
+                            /{conflict.partition}/{conflict.relative_path}
+                        </div>
+                        <div style="opacity: 0.7;">
+                            {conflict.contending_modules.join(' vs ')}
+                        </div>
+                    </div>
+                {/each}
+            </div>
+        {/if}
+    </div>
+{/if}
+
 <div class="search-container">
   <svg class="search-icon" viewBox="0 0 24 24"><path d={ICONS.search} /></svg>
   <input 
@@ -114,8 +169,7 @@
   <div class="filter-controls">
     <div class="checkbox-wrapper">
         <input type="checkbox" id="show-unmounted" bind:checked={showUnmounted} />
-        <label for="show-unmounted" title="Show unmounted modules">{store.L.modules?.filterAll ??
-      'All'}</label>
+        <label for="show-unmounted" title="Show unmounted modules">{store.L.modules?.filterAll ?? 'All'}</label>
     </div>
     <div class="vertical-divider"></div>
     <span class="filter-label-text">{store.L.modules?.filterLabel}</span>
@@ -129,12 +183,13 @@
     </select>
   </div>
 </div>
+
 {#if store.loading.modules}
   <div class="rules-list">
     {#each Array(5) as _}
       <div class="rule-card">
         <div class="rule-info">
-          <div class="skeleton-group">
+           <div class="skeleton-group">
             <Skeleton width="60%" height="20px" />
             <Skeleton width="40%" height="14px" />
           </div>
@@ -145,9 +200,7 @@
   </div>
 {:else if filteredModules.length === 0}
   <div class="empty-state">
-    {store.modules.length === 0 ?
-      (store.L.modules?.empty ?? "No enabled modules found") : 
-      "No matching modules"}
+    {store.modules.length === 0 ? (store.L.modules?.empty ?? "No enabled modules found") : "No matching modules"}
   </div>
 {:else}
   <div class="rules-list">
@@ -187,18 +240,19 @@
             {getModeLabel(mod)}
           </div>
         </div>
+       
         {#if expandedId === mod.id}
           <div class="rule-details" transition:slide={{ duration: 200 }}>
-            <p class="module-desc">{mod.description ||
-              (store.L.modules?.noDesc ?? 'No description')}</p>
-            <p class="module-meta">{store.L.modules?.author ??
-              'Author'}: {mod.author || (store.L.modules?.unknown ?? 'Unknown')}</p>
+            <p class="module-desc">{mod.description || (store.L.modules?.noDesc ?? 'No description')}</p>
+            <p class="module-meta">{store.L.modules?.author ?? 'Author'}: {mod.author || (store.L.modules?.unknown ?? 'Unknown')}</p>
+            
             {#if !mod.is_mounted}
-                 <div class="status-alert">
+                <div class="status-alert">
                     <svg viewBox="0 0 24 24" width="16" height="16"><path d={ICONS.info} fill="currentColor"/></svg>
                     <span>This module is currently not mounted.</span>
                 </div>
             {/if}
+     
             <div class="config-section">
               <div class="config-row">
                 <span class="config-label">{store.L.modules?.defaultMode ?? 'Default Strategy'}:</span>
@@ -216,6 +270,7 @@
                   </select>
                 </div>
               </div>
+
               <div class="paths-editor">
                  <div class="paths-header">
                      <span class="config-label">{store.L.modules?.pathRules ?? 'Path Overrides'}:</span>
@@ -223,6 +278,7 @@
                          <svg viewBox="0 0 24 24" width="20" height="20"><path d={ICONS.add} fill="currentColor"/></svg>
                      </button>
                  </div>
+                 
                   {#if mod.rules.paths && Object.keys(mod.rules.paths).length > 0}
                      <div class="path-list">
                         {#each Object.entries(mod.rules.paths) as [path, mode]}
@@ -247,7 +303,7 @@
                                     <option value="ignore">{store.L.modules?.modes?.short?.ignore ?? 'Ignore'}</option>
                                 </select>
                                 <button class="btn-icon delete" onclick={() => removePathRule(mod, path)} title="Remove rule">
-                                    <svg viewBox="0 0 24 24" width="18" height="18"><path d={ICONS.delete} fill="currentColor"/></svg>
+                                     <svg viewBox="0 0 24 24" width="18" height="18"><path d={ICONS.delete} fill="currentColor"/></svg>
                                 </button>
                             </div>
                         {/each}
@@ -263,13 +319,14 @@
     {/each}
   </div>
 {/if}
+
 <BottomActions>
   <button class="btn-tonal" onclick={load} disabled={store.loading.modules} title={store.L.modules?.reload}>
     <svg viewBox="0 0 24 24" width="20" height="20"><path d={ICONS.refresh} fill="currentColor"/></svg>
   </button>
   <div class="spacer"></div>
   <button class="btn-filled" onclick={save} disabled={store.saving.modules || !isDirty}>
-    <svg viewBox="0 0 24 24" width="18" height="18"><path d={ICONS.save} fill="currentColor"/></svg>
+    <svg width="18" height="18" viewBox="0 0 24 24"><path d={ICONS.save} fill="currentColor"/></svg>
     {store.saving.modules ? store.L.common?.saving : store.L.modules?.save}
   </button>
 </BottomActions>
