@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use walkdir::WalkDir;
 use crate::defs::HYMO_PROTOCOL_VERSION;
 
-const HYMO_DEV: &str = "/dev/hymo_ctl";
+const DEV_PATH: &str = "/dev/hymo_ctl";
 const HYMO_IOC_MAGIC: u8 = 0xE0;
 
 const _IOC_NRBITS: u32 = 8;
@@ -23,37 +23,66 @@ const _IOC_DIRSHIFT: u32 = _IOC_SIZESHIFT + _IOC_SIZEBITS;
 const _IOC_NONE: u32 = 0;
 const _IOC_WRITE: u32 = 1;
 const _IOC_READ: u32 = 2;
+const _IOC_READ_WRITE: u32 = 3;
 
-const fn _ioc(dir: u32, type_: u32, nr: u32, size: u32) -> u32 {
-    (dir << _IOC_DIRSHIFT) | (type_ << _IOC_TYPESHIFT) | (nr << _IOC_NRSHIFT) | (size << _IOC_SIZESHIFT)
+macro_rules! _IOC {
+    ($dir:expr, $type:expr, $nr:expr, $size:expr) => {
+        (($dir) << _IOC_DIRSHIFT) |
+        (($type) << _IOC_TYPESHIFT) |
+        (($nr) << _IOC_NRSHIFT) |
+        (($size) << _IOC_SIZESHIFT)
+    };
 }
 
-const fn _io(type_: u32, nr: u32) -> u32 {
-    _ioc(_IOC_NONE, type_, nr, 0)
+macro_rules! _IO {
+    ($type:expr, $nr:expr) => {
+        _IOC!(_IOC_NONE, $type, $nr, 0)
+    };
 }
 
-const fn _ior(type_: u32, nr: u32, size: usize) -> u32 {
-    _ioc(_IOC_READ, type_, nr, size as u32)
+macro_rules! _IOR {
+    ($type:expr, $nr:expr, $size:ty) => {
+        _IOC!(_IOC_READ, $type, $nr, std::mem::size_of::<$size>() as u32)
+    };
 }
 
-const fn _iow(type_: u32, nr: u32, size: usize) -> u32 {
-    _ioc(_IOC_WRITE, type_, nr, size as u32)
+macro_rules! _IOW {
+    ($type:expr, $nr:expr, $size:ty) => {
+        _IOC!(_IOC_WRITE, $type, $nr, std::mem::size_of::<$size>() as u32)
+    };
 }
 
-const HYMO_IOC_ADD_RULE: i32 = _iow(HYMO_IOC_MAGIC as u32, 1, std::mem::size_of::<HymoIoctlArg>()) as i32;
-#[allow(dead_code)]
-const HYMO_IOC_DEL_RULE: i32 = _iow(HYMO_IOC_MAGIC as u32, 2, std::mem::size_of::<HymoIoctlArg>()) as i32;
-const HYMO_IOC_HIDE_RULE: i32 = _iow(HYMO_IOC_MAGIC as u32, 3, std::mem::size_of::<HymoIoctlArg>()) as i32;
-const HYMO_IOC_CLEAR_ALL: i32 = _io(HYMO_IOC_MAGIC as u32, 5) as i32;
-const HYMO_IOC_GET_VERSION: i32 = _ior(HYMO_IOC_MAGIC as u32, 6, std::mem::size_of::<i32>()) as i32;
-const HYMO_IOC_SET_DEBUG: i32 = _iow(HYMO_IOC_MAGIC as u32, 8, std::mem::size_of::<i32>()) as i32;
+macro_rules! _IOWR {
+    ($type:expr, $nr:expr, $size:ty) => {
+        _IOC!(_IOC_READ_WRITE, $type, $nr, std::mem::size_of::<$size>() as u32)
+    };
+}
 
 #[repr(C)]
 struct HymoIoctlArg {
     src: *const libc::c_char,
     target: *const libc::c_char,
-    type_: i32,
+    r#type: libc::c_int,
 }
+
+#[allow(dead_code)]
+#[repr(C)]
+struct HymoIoctlListArg {
+    buf: *mut libc::c_char,
+    size: usize,
+}
+
+fn ioc_add_rule() -> libc::c_int { _IOW!(HYMO_IOC_MAGIC as u32, 1, HymoIoctlArg) as libc::c_int }
+#[allow(dead_code)]
+fn ioc_del_rule() -> libc::c_int { _IOW!(HYMO_IOC_MAGIC as u32, 2, HymoIoctlArg) as libc::c_int }
+fn ioc_hide_rule() -> libc::c_int { _IOW!(HYMO_IOC_MAGIC as u32, 3, HymoIoctlArg) as libc::c_int }
+#[allow(dead_code)]
+fn ioc_inject_rule() -> libc::c_int { _IOW!(HYMO_IOC_MAGIC as u32, 4, HymoIoctlArg) as libc::c_int }
+fn ioc_clear_all() -> libc::c_int { _IO!(HYMO_IOC_MAGIC as u32, 5) as libc::c_int }
+fn ioc_get_version() -> libc::c_int { _IOR!(HYMO_IOC_MAGIC as u32, 6, libc::c_int) as libc::c_int }
+#[allow(dead_code)]
+fn ioc_list_rules() -> libc::c_int { _IOWR!(HYMO_IOC_MAGIC as u32, 7, HymoIoctlListArg) as libc::c_int }
+fn ioc_set_debug() -> libc::c_int { _IOW!(HYMO_IOC_MAGIC as u32, 8, libc::c_int) as libc::c_int }
 
 #[derive(Debug, PartialEq)]
 pub enum HymoFsStatus {
@@ -68,7 +97,7 @@ pub struct HymoFs;
 
 impl HymoFs {
     pub fn is_available() -> bool {
-        Path::new(HYMO_DEV).exists()
+        Path::new(DEV_PATH).exists()
     }
 
     pub fn check_status() -> HymoFsStatus {
@@ -91,23 +120,23 @@ impl HymoFs {
     }
 
     pub fn get_version() -> Option<i32> {
-        let file = File::open(HYMO_DEV).ok()?;
-        let mut version: i32 = 0;
+        let file = File::open(DEV_PATH).ok()?;
+        let mut version: libc::c_int = 0;
         let ret = unsafe {
-            libc::ioctl(file.as_raw_fd(), HYMO_IOC_GET_VERSION, &mut version)
+            libc::ioctl(file.as_raw_fd(), ioc_get_version() as _, &mut version)
         };
         if ret == 0 {
-            Some(version)
+            Some(version as i32)
         } else {
             None
         }
     }
 
     pub fn set_debug(enable: bool) -> Result<()> {
-        let file = File::open(HYMO_DEV)?;
-        let val: i32 = if enable { 1 } else { 0 };
+        let file = File::open(DEV_PATH)?;
+        let val: libc::c_int = if enable { 1 } else { 0 };
         let ret = unsafe {
-            libc::ioctl(file.as_raw_fd(), HYMO_IOC_SET_DEBUG, &val)
+            libc::ioctl(file.as_raw_fd(), ioc_set_debug() as _, &val)
         };
         if ret != 0 {
             anyhow::bail!("Failed to set debug mode, ioctl ret: {}", ret);
@@ -116,9 +145,9 @@ impl HymoFs {
     }
 
     pub fn clear() -> Result<()> {
-        let file = File::open(HYMO_DEV).context("Failed to open HymoFS control device")?;
+        let file = File::open(DEV_PATH).context("Failed to open HymoFS control device")?;
         let ret = unsafe {
-            libc::ioctl(file.as_raw_fd(), HYMO_IOC_CLEAR_ALL)
+            libc::ioctl(file.as_raw_fd(), ioc_clear_all() as _)
         };
         if ret != 0 {
             anyhow::bail!("Failed to clear rules, ioctl ret: {}", ret);
@@ -127,18 +156,18 @@ impl HymoFs {
     }
 
     pub fn add_rule(src: &str, target: &str, type_: i32) -> Result<()> {
-        let file = File::open(HYMO_DEV)?;
+        let file = File::open(DEV_PATH)?;
         let c_src = CString::new(src)?;
         let c_target = CString::new(target)?;
 
         let arg = HymoIoctlArg {
             src: c_src.as_ptr(),
             target: c_target.as_ptr(),
-            type_,
+            r#type: type_ as libc::c_int,
         };
 
         let ret = unsafe {
-            libc::ioctl(file.as_raw_fd(), HYMO_IOC_ADD_RULE, &arg)
+            libc::ioctl(file.as_raw_fd(), ioc_add_rule() as _, &arg)
         };
         if ret != 0 {
             anyhow::bail!("Failed to add rule, ioctl ret: {}", ret);
@@ -146,23 +175,69 @@ impl HymoFs {
         Ok(())
     }
 
+    pub fn delete_rule(src: &str) -> Result<()> {
+        let file = File::open(DEV_PATH)?;
+        let c_src = CString::new(src)?;
+        
+        let arg = HymoIoctlArg {
+            src: c_src.as_ptr(),
+            target: std::ptr::null(),
+            r#type: 0,
+        };
+
+        let ret = unsafe {
+            libc::ioctl(file.as_raw_fd(), ioc_del_rule() as _, &arg)
+        };
+        if ret != 0 {
+            anyhow::bail!("Failed to delete rule, ioctl ret: {}", ret);
+        }
+        Ok(())
+    }
+
     pub fn hide_path(target: &str) -> Result<()> {
-        let file = File::open(HYMO_DEV)?;
+        let file = File::open(DEV_PATH)?;
         let c_target = CString::new(target)?;
 
         let arg = HymoIoctlArg {
             src: c_target.as_ptr(),
             target: std::ptr::null(),
-            type_: 0,
+            r#type: 0,
         };
 
         let ret = unsafe {
-            libc::ioctl(file.as_raw_fd(), HYMO_IOC_HIDE_RULE, &arg)
+            libc::ioctl(file.as_raw_fd(), ioc_hide_rule() as _, &arg)
         };
         if ret != 0 {
             anyhow::bail!("Failed to hide path, ioctl ret: {}", ret);
         }
         Ok(())
+    }
+
+    pub fn get_active_rules() -> Result<String> {
+        let file = File::open(DEV_PATH)?;
+        let mut buf = vec![0u8; 128 * 1024]; 
+        
+        let mut arg = HymoIoctlListArg {
+            buf: buf.as_mut_ptr() as *mut libc::c_char,
+            size: buf.len(),
+        };
+
+        let ret = unsafe {
+            libc::ioctl(file.as_raw_fd(), ioc_list_rules() as _, &mut arg)
+        };
+
+        if ret < 0 {
+             anyhow::bail!("Failed to list rules, ioctl ret: {}", ret);
+        }
+        
+        let len = ret as usize;
+        if len > buf.len() {
+             anyhow::bail!("Buffer too small for rules list");
+        }
+        
+        buf.truncate(len);
+        let s = String::from_utf8(buf).context("Invalid UTF-8 in rules list")?;
+        Ok(s)
     }
 
     pub fn inject_directory(target_base: &Path, module_dir: &Path) -> Result<()> {
@@ -184,7 +259,7 @@ impl HymoFs {
             let file_type = metadata.file_type();
 
             if file_type.is_file() || file_type.is_symlink() {
-                if let Err(e) = Self::add_rule(&src_str, &target_str, 0) {
+                if let Err(e) = Self::add_rule(&target_str, &src_str, 0) {
                     log::warn!("Failed to add rule for {}: {}", target_str, e);
                 }
             } else if file_type.is_char_device() {
