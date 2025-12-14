@@ -39,7 +39,6 @@ export interface StorageStatus {
   type: 'tmpfs' | 'ext4' | 'unknown' | null;
   error?: string;
   hymofs_available: boolean;
-  hymofs_version?: number;
 }
 
 export interface SystemInfo {
@@ -48,7 +47,6 @@ export interface SystemInfo {
   mountBase: string;
   activeMounts: string[];
   zygisksuEnforce?: string;
-  nukeActive?: boolean;
 }
 
 export interface DeviceInfo {

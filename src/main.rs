@@ -283,9 +283,9 @@ fn run() -> Result<()> {
     let hymofs_available = storage::is_hymofs_active();
     
     #[cfg(any(target_os = "linux", target_os = "android"))]
-    let hymofs_version = crate::mount::hymofs::HymoFs::get_version();
+    let hymofs_active = crate::mount::hymofs::HymoFs::is_available();
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
-    let hymofs_version = None;
+    let hymofs_active = false;
     
     let state = RuntimeState::new(
         storage_handle.mode,
@@ -293,11 +293,9 @@ fn run() -> Result<()> {
         exec_result.overlay_module_ids,
         final_magic_ids,
         exec_result.hymo_module_ids,
-        nuke_active,
         active_mounts,
         storage_stats,
-        hymofs_available,
-        hymofs_version
+        hymofs_available || hymofs_active
     );
 
     if let Err(e) = state.save() {

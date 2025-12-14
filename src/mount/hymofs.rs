@@ -7,7 +7,6 @@ use anyhow::{Context, Result};
 use log::{debug, warn};
 use walkdir::WalkDir;
 use serde::Serialize;
-use crate::defs::HYMO_PROTOCOL_VERSION;
 use nix::{ioctl_write_ptr, ioctl_read, ioctl_none, ioctl_readwrite, ioctl_write_int};
 
 const DEV_PATH: &str = "/dev/hymo_ctl";
@@ -26,24 +25,12 @@ struct HymoIoctlListArg {
     size: usize,
 }
 
-// 修复：直接调用宏，去掉前面的 ioctl:: 前缀
 ioctl_write_ptr!(ioc_add_rule, HYMO_IOC_MAGIC, 1, HymoIoctlArg);
 ioctl_write_ptr!(ioc_del_rule, HYMO_IOC_MAGIC, 2, HymoIoctlArg);
 ioctl_write_ptr!(ioc_hide_rule, HYMO_IOC_MAGIC, 3, HymoIoctlArg);
 ioctl_none!(ioc_clear_all, HYMO_IOC_MAGIC, 5);
-ioctl_read!(ioc_get_version, HYMO_IOC_MAGIC, 6, libc::c_int);
 ioctl_readwrite!(ioc_list_rules, HYMO_IOC_MAGIC, 7, HymoIoctlListArg);
 ioctl_write_ptr!(ioc_set_debug, HYMO_IOC_MAGIC, 8, libc::c_int);
-
-#[derive(Debug, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum HymoFsStatus {
-    Available,
-    NotPresent,
-    ProtocolMismatch,
-    KernelTooOld,
-    ModuleTooOld,
-}
 
 pub struct HymoFs;
 
@@ -58,35 +45,6 @@ impl HymoFs {
 
     pub fn is_available() -> bool {
         Path::new(DEV_PATH).exists()
-    }
-
-    pub fn check_status() -> HymoFsStatus {
-        if !Self::is_available() {
-            return HymoFsStatus::NotPresent;
-        }
-
-        match Self::get_version() {
-            Some(v) => {
-                if v == HYMO_PROTOCOL_VERSION {
-                    HymoFsStatus::Available
-                } else if v < HYMO_PROTOCOL_VERSION {
-                    HymoFsStatus::KernelTooOld
-                } else {
-                    HymoFsStatus::ModuleTooOld
-                }
-            },
-            None => HymoFsStatus::ProtocolMismatch
-        }
-    }
-
-    pub fn get_version() -> Option<i32> {
-        let file = Self::open_dev().ok()?;
-        let mut version: libc::c_int = 0;
-        
-        match unsafe { ioc_get_version(file.as_raw_fd(), &mut version) } {
-            Ok(_) => Some(version as i32),
-            Err(_) => None,
-        }
     }
 
     pub fn set_debug(enable: bool) -> Result<()> {
