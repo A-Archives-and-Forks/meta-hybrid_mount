@@ -1,9 +1,10 @@
-use std::ffi::CString;
-use std::fs::File;
+use std::ffi::{CStr, CString};
+use std::fs::{File, OpenOptions};
 use std::os::unix::fs::{FileTypeExt, MetadataExt};
-use std::os::fd::AsRawFd;
+use std::os::unix::io::AsRawFd;
 use std::path::Path;
 use anyhow::{Context, Result};
+use log::{debug, warn};
 use walkdir::WalkDir;
 use crate::defs::HYMO_PROTOCOL_VERSION;
 
@@ -76,8 +77,6 @@ fn ioc_add_rule() -> libc::c_int { _IOW!(HYMO_IOC_MAGIC as u32, 1, HymoIoctlArg)
 #[allow(dead_code)]
 fn ioc_del_rule() -> libc::c_int { _IOW!(HYMO_IOC_MAGIC as u32, 2, HymoIoctlArg) as libc::c_int }
 fn ioc_hide_rule() -> libc::c_int { _IOW!(HYMO_IOC_MAGIC as u32, 3, HymoIoctlArg) as libc::c_int }
-#[allow(dead_code)]
-fn ioc_inject_rule() -> libc::c_int { _IOW!(HYMO_IOC_MAGIC as u32, 4, HymoIoctlArg) as libc::c_int }
 fn ioc_clear_all() -> libc::c_int { _IO!(HYMO_IOC_MAGIC as u32, 5) as libc::c_int }
 fn ioc_get_version() -> libc::c_int { _IOR!(HYMO_IOC_MAGIC as u32, 6, libc::c_int) as libc::c_int }
 #[allow(dead_code)]
@@ -96,6 +95,14 @@ pub enum HymoFsStatus {
 pub struct HymoFs;
 
 impl HymoFs {
+    fn open_dev() -> Result<File> {
+        OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(DEV_PATH)
+            .with_context(|| format!("Failed to open {}", DEV_PATH))
+    }
+
     pub fn is_available() -> bool {
         Path::new(DEV_PATH).exists()
     }
@@ -120,23 +127,22 @@ impl HymoFs {
     }
 
     pub fn get_version() -> Option<i32> {
-        let file = File::open(DEV_PATH).ok()?;
-        let mut version: libc::c_int = 0;
+        let file = Self::open_dev().ok()?;
         let ret = unsafe {
-            libc::ioctl(file.as_raw_fd(), ioc_get_version() as _, &mut version)
+            libc::ioctl(file.as_raw_fd(), ioc_get_version())
         };
-        if ret == 0 {
-            Some(version as i32)
-        } else {
+        if ret < 0 {
             None
+        } else {
+            Some(ret as i32)
         }
     }
 
     pub fn set_debug(enable: bool) -> Result<()> {
-        let file = File::open(DEV_PATH)?;
+        let file = Self::open_dev()?;
         let val: libc::c_int = if enable { 1 } else { 0 };
         let ret = unsafe {
-            libc::ioctl(file.as_raw_fd(), ioc_set_debug() as _, &val)
+            libc::ioctl(file.as_raw_fd(), ioc_set_debug(), &val)
         };
         if ret != 0 {
             anyhow::bail!("Failed to set debug mode, ioctl ret: {}", ret);
@@ -145,9 +151,9 @@ impl HymoFs {
     }
 
     pub fn clear() -> Result<()> {
-        let file = File::open(DEV_PATH).context("Failed to open HymoFS control device")?;
+        let file = Self::open_dev().context("Failed to open HymoFS control device")?;
         let ret = unsafe {
-            libc::ioctl(file.as_raw_fd(), ioc_clear_all() as _)
+            libc::ioctl(file.as_raw_fd(), ioc_clear_all())
         };
         if ret != 0 {
             anyhow::bail!("Failed to clear rules, ioctl ret: {}", ret);
@@ -155,19 +161,19 @@ impl HymoFs {
         Ok(())
     }
 
-    pub fn add_rule(src: &str, target: &str, type_: i32) -> Result<()> {
-        let file = File::open(DEV_PATH)?;
+    pub fn add_rule(src: &str, target: &str, type_val: i32) -> Result<()> {
+        let file = Self::open_dev()?;
         let c_src = CString::new(src)?;
         let c_target = CString::new(target)?;
 
         let arg = HymoIoctlArg {
             src: c_src.as_ptr(),
             target: c_target.as_ptr(),
-            r#type: type_ as libc::c_int,
+            r#type: type_val as libc::c_int,
         };
 
         let ret = unsafe {
-            libc::ioctl(file.as_raw_fd(), ioc_add_rule() as _, &arg)
+            libc::ioctl(file.as_raw_fd(), ioc_add_rule(), &arg)
         };
         if ret != 0 {
             anyhow::bail!("Failed to add rule, ioctl ret: {}", ret);
@@ -176,7 +182,7 @@ impl HymoFs {
     }
 
     pub fn delete_rule(src: &str) -> Result<()> {
-        let file = File::open(DEV_PATH)?;
+        let file = Self::open_dev()?;
         let c_src = CString::new(src)?;
         
         let arg = HymoIoctlArg {
@@ -186,7 +192,7 @@ impl HymoFs {
         };
 
         let ret = unsafe {
-            libc::ioctl(file.as_raw_fd(), ioc_del_rule() as _, &arg)
+            libc::ioctl(file.as_raw_fd(), ioc_del_rule(), &arg)
         };
         if ret != 0 {
             anyhow::bail!("Failed to delete rule, ioctl ret: {}", ret);
@@ -195,7 +201,7 @@ impl HymoFs {
     }
 
     pub fn hide_path(target: &str) -> Result<()> {
-        let file = File::open(DEV_PATH)?;
+        let file = Self::open_dev()?;
         let c_target = CString::new(target)?;
 
         let arg = HymoIoctlArg {
@@ -205,7 +211,7 @@ impl HymoFs {
         };
 
         let ret = unsafe {
-            libc::ioctl(file.as_raw_fd(), ioc_hide_rule() as _, &arg)
+            libc::ioctl(file.as_raw_fd(), ioc_hide_rule(), &arg)
         };
         if ret != 0 {
             anyhow::bail!("Failed to hide path, ioctl ret: {}", ret);
@@ -214,7 +220,7 @@ impl HymoFs {
     }
 
     pub fn get_active_rules() -> Result<String> {
-        let file = File::open(DEV_PATH)?;
+        let file = Self::open_dev()?;
         let mut buf = vec![0u8; 128 * 1024]; 
         
         let mut arg = HymoIoctlListArg {
@@ -223,7 +229,7 @@ impl HymoFs {
         };
 
         let ret = unsafe {
-            libc::ioctl(file.as_raw_fd(), ioc_list_rules() as _, &mut arg)
+            libc::ioctl(file.as_raw_fd(), ioc_list_rules(), &mut arg)
         };
 
         if ret < 0 {
@@ -246,26 +252,70 @@ impl HymoFs {
         }
 
         for entry in WalkDir::new(module_dir).min_depth(1) {
-            let entry = entry?;
-            let current_path = entry.path();
-            
-            let rel_path = current_path.strip_prefix(module_dir)?;
-            
-            let target_path = target_base.join(rel_path);
-            let target_str = target_path.to_string_lossy();
-            let src_str = current_path.to_string_lossy();
+            let entry = match entry {
+                Ok(e) => e,
+                Err(e) => {
+                    warn!("HymoFS walk error: {}", e);
+                    continue;
+                }
+            };
 
-            let metadata = entry.metadata()?;
-            let file_type = metadata.file_type();
+            let current_path = entry.path().to_path_buf();
+            let relative_path = match current_path.strip_prefix(module_dir) {
+                Ok(p) => p,
+                Err(_) => continue,
+            };
+            let target_path = target_base.join(relative_path);
+            let file_type = entry.file_type();
 
             if file_type.is_file() || file_type.is_symlink() {
+                let target_str = target_path.to_string_lossy();
+                let src_str = current_path.to_string_lossy();
                 if let Err(e) = Self::add_rule(&target_str, &src_str, 0) {
-                    log::warn!("Failed to add rule for {}: {}", target_str, e);
+                    warn!("Failed to add rule for {}: {}", target_str, e);
                 }
             } else if file_type.is_char_device() {
-                if metadata.rdev() == 0 {
-                    if let Err(e) = Self::hide_path(&target_str) {
-                        log::warn!("Failed to hide path {}: {}", target_str, e);
+                if let Ok(metadata) = entry.metadata() {
+                    if metadata.rdev() == 0 {
+                        let target_str = target_path.to_string_lossy();
+                        if let Err(e) = Self::hide_path(&target_str) {
+                            warn!("Failed to hide path {}: {}", target_str, e);
+                        }
+                    }
+                }
+            }
+        }
+        
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub fn delete_directory_rules(target_base: &Path, module_dir: &Path) -> Result<()> {
+        if !module_dir.exists() || !module_dir.is_dir() {
+            return Ok(());
+        }
+
+        for entry in WalkDir::new(module_dir).min_depth(1) {
+            let entry = entry?;
+            let current_path = entry.path();
+            let relative_path = match current_path.strip_prefix(module_dir) {
+                Ok(p) => p,
+                Err(_) => continue,
+            };
+            let target_path = target_base.join(relative_path);
+            let target_str = target_path.to_string_lossy();
+            let file_type = entry.file_type();
+
+            if file_type.is_file() || file_type.is_symlink() {
+                if let Err(e) = Self::delete_rule(&target_str) {
+                    warn!("Failed to delete rule for {}: {}", target_str, e);
+                }
+            } else if file_type.is_char_device() {
+                if let Ok(metadata) = entry.metadata() {
+                    if metadata.rdev() == 0 {
+                        if let Err(e) = Self::delete_rule(&target_str) {
+                            warn!("Failed to delete hidden rule for {}: {}", target_str, e);
+                        }
                     }
                 }
             }
