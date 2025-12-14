@@ -16,8 +16,8 @@ if [ ! -f "$BINARY" ]; then
     exit 1
 fi
 
-if [ -f "/data/adb/hybrid_mount/daemon.log" ]; then
-  mv "/data/adb/hybrid_mount/daemon.log" "/data/adb/hybrid_mount/daemon.log.bak"
+if [ -f "/data/adb/meta-hybrid/daemon.log" ]; then
+  mv "/data/adb/meta-hybrid/daemon.log" "/data/adb/meta-hybrid/daemon.log.bak"
 fi
 
 chmod 755 "$BINARY"
