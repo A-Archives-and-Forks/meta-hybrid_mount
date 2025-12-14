@@ -4,10 +4,9 @@ use std::os::unix::fs::{FileTypeExt, MetadataExt};
 use std::os::unix::io::AsRawFd;
 use std::path::Path;
 use anyhow::{Context, Result};
-use log::{debug, warn};
+use log::warn;
 use walkdir::WalkDir;
-use serde::Serialize;
-use nix::{ioctl_write_ptr, ioctl_read, ioctl_none, ioctl_readwrite, ioctl_write_int};
+use nix::{ioctl_write_ptr, ioctl_none, ioctl_readwrite, ioctl_write_int};
 
 const DEV_PATH: &str = "/dev/hymo_ctl";
 const HYMO_IOC_MAGIC: u8 = 0xE0;
