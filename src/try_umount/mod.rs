@@ -32,14 +32,17 @@ where
             continue;
         }
 
-        if let Some(name) = path.file_name()
-            && name.to_string_lossy().to_string().contains("zygisksu")
-            && fs::read_to_string("/data/adb/zygisksu/denylist_enforce")
-                .map(|s| s.trim() == "0")
-                .unwrap_or(false)
-        {
-            log::warn!("zn was detected, and try_umount was cancelled.");
-            return Ok(());
+        if let Some(name) = path.file_name() {
+            if name.to_string_lossy().to_string().contains("zygisksu") {
+                let is_denylist_enforce_off = fs::read_to_string("/data/adb/zygisksu/denylist_enforce")
+                    .map(|s| s.trim() == "0")
+                    .unwrap_or(false);
+                
+                if is_denylist_enforce_off {
+                    log::warn!("zn was detected, and try_umount was cancelled.");
+                    return Ok(());
+                }
+            }
         }
     }
 

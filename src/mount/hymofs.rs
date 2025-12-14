@@ -51,10 +51,12 @@ const fn _iowr<T>(type_: u8, nr: u8) -> c_ulong {
 }
 
 const HYMO_IOC_ADD_RULE: c_ulong    = _iow::<HymoIoctlArg>(HYMO_IOC_MAGIC, 1);
+#[allow(dead_code)]
 const HYMO_IOC_DEL_RULE: c_ulong    = _iow::<HymoIoctlArg>(HYMO_IOC_MAGIC, 2);
 const HYMO_IOC_HIDE_RULE: c_ulong   = _iow::<HymoIoctlArg>(HYMO_IOC_MAGIC, 3);
 const HYMO_IOC_CLEAR_ALL: c_ulong   = _io(HYMO_IOC_MAGIC, 5);
 const HYMO_IOC_GET_VERSION: c_ulong = _ior::<c_int>(HYMO_IOC_MAGIC, 6);
+#[allow(dead_code)]
 const HYMO_IOC_LIST_RULES: c_ulong  = _iowr::<HymoIoctlListArg>(HYMO_IOC_MAGIC, 7);
 const HYMO_IOC_SET_DEBUG: c_ulong   = _iow::<c_int>(HYMO_IOC_MAGIC, 8);
 
@@ -66,6 +68,7 @@ struct HymoIoctlArg {
 }
 
 #[repr(C)]
+#[allow(dead_code)]
 struct HymoIoctlListArg {
     buf: *mut c_char,
     size: usize,
@@ -213,6 +216,7 @@ impl HymoController {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn delete_rule(&self, src: &str) -> Result<()> {
         debug!("HymoFS: DEL_RULE src='{}'", src);
         let c_src = CString::new(src)?;
@@ -253,6 +257,7 @@ impl HymoController {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn list_active_rules(&self) -> Result<String> {
         let capacity = 128 * 1024;
         let mut buffer = vec![0u8; capacity];
@@ -297,10 +302,12 @@ impl HymoFs {
         HymoController::new()?.set_debug(enable)
     }
 
+    #[allow(dead_code)]
     pub fn add_rule(src: &str, target: &str, type_val: i32) -> Result<()> {
         HymoController::new()?.add_rule(src, target, HymoFileType::from(type_val))
     }
 
+    #[allow(dead_code)]
     pub fn delete_rule(src: &str) -> Result<()> {
         HymoController::new()?.delete_rule(src)
     }
@@ -309,6 +316,7 @@ impl HymoFs {
         HymoController::new()?.hide_path(path)
     }
 
+    #[allow(dead_code)]
     pub fn list_active_rules() -> Result<String> {
         HymoController::new()?.list_active_rules()
     }
@@ -359,6 +367,7 @@ impl HymoFs {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn delete_directory_rules(target_base: &Path, module_dir: &Path) -> Result<()> {
         if !module_dir.exists() || !module_dir.is_dir() {
             return Ok(());

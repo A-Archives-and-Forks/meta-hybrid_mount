@@ -1,6 +1,5 @@
 use std::{
     ffi::CString,
-    io,
     os::fd::RawFd,
     path::Path,
     sync::{Mutex, OnceLock},
@@ -84,11 +83,26 @@ where
     let fd = *DRIVER_FD.get_or_init(grab_fd);
     if fd < 0 { return Ok(()); }
 
-    unsafe {
+    let ret = unsafe {
         #[cfg(target_env = "gnu")]
-        let _ = libc::ioctl(fd as libc::c_int, KSU_IOCTL_ADD_TRY_UMOUNT as u64, &cmd);
+        {
+            libc::ioctl(fd as libc::c_int, KSU_IOCTL_ADD_TRY_UMOUNT as u64, &cmd)
+        }
         #[cfg(not(target_env = "gnu"))]
-        let _ = libc::ioctl(fd as libc::c_int, KSU_IOCTL_ADD_TRY_UMOUNT as i32, &cmd);
+        {
+            libc::ioctl(fd as libc::c_int, KSU_IOCTL_ADD_TRY_UMOUNT as i32, &cmd)
+        }
     };
+
+    if ret < 0 {
+        log::error!(
+            "umount {} failed: {}",
+            target.as_ref().display(),
+            std::io::Error::last_os_error()
+        );
+        return Ok(());
+    }
+
+    log::info!("umount {} successful!", target.as_ref().display());
     Ok(())
 }
