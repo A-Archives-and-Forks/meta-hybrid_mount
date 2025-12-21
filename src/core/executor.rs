@@ -144,7 +144,7 @@ pub fn execute(plan: &MountPlan, config: &config::Config) -> Result<ExecutionRes
 
     if !plan.hymo_ops.is_empty() {
         if HymoFs::is_available() {
-            log::info!(">> Phase 1: HymoFS Injection...");
+            log::info!(">> Phase 1: HymoFS Injection (Merge Mode)...");
             if let Err(e) = HymoFs::clear() {
                 log::warn!("Failed to reset HymoFS rules: {}", e);
             }
@@ -185,12 +185,17 @@ pub fn execute(plan: &MountPlan, config: &config::Config) -> Result<ExecutionRes
                 }
 
                 log::debug!(
-                    "Injecting {} (via mirror) -> {}",
+                    "Injecting {} (via mirror/merge) -> {}",
                     op.module_id,
                     op.target.display()
                 );
 
-                match HymoFs::inject_directory(&op.target, &mirror_base) {
+                // Modified: Use add_merge_rule instead of inject_directory
+                // This leverages the kernel's ability to merge directories directly
+                match HymoFs::add_merge_rule(
+                    &op.target.to_string_lossy(),
+                    &mirror_base.to_string_lossy(),
+                ) {
                     Ok(_) => {
                         if let Some(root) = extract_module_root(&op.source) {
                             global_success_map
@@ -201,10 +206,13 @@ pub fn execute(plan: &MountPlan, config: &config::Config) -> Result<ExecutionRes
                     }
                     Err(e) => {
                         log::error!(
-                            "HymoFS failed for {}: {}. Fallback to Magic Mount.",
+                            "HymoFS merge rule failed for {}: {}. Fallback to Magic Mount.",
                             op.module_id,
                             e
                         );
+                        // Optional: We could fallback to old inject_directory here if we wanted
+                        // backward compatibility with older kernels, but typically we assume
+                        // matching kernel module.
                         if let Some(root) = extract_module_root(&op.source) {
                             magic_queue.push(root);
                         }
