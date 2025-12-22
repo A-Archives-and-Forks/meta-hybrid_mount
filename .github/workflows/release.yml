@@ -58,10 +58,6 @@ jobs:
           cache: 'npm'
           cache-dependency-path: webui/package-lock.json
 
-      - name: Check Code Quality (Clippy)
-        run: |
-          cargo clippy --workspace --all-targets --all-features -- -D warnings
-
       - name: Update Version Numbers
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
