@@ -15,6 +15,7 @@ use rustix::{
 };
 
 use crate::defs::KSU_OVERLAY_SOURCE;
+use crate::utils::send_unmountable;
 
 fn mount_overlayfs(
     lower_dirs: &[String],
@@ -69,10 +70,7 @@ fn mount_overlayfs(
         if let (Some(u), Some(w)) = (&upperdir_str, &workdir_str) {
             data = format!("{},upperdir={},workdir={}", data, u, w);
         }
-
-        // Fix: Convert String to CString for rustix::mount::mount
         let data_c = CString::new(data)?;
-
         mount(
             KSU_OVERLAY_SOURCE,
             dest,
@@ -112,12 +110,17 @@ fn mount_overlay_child(
     relative: &str,
     module_roots: &[String],
     stock_root: &str,
+    disable_umount: bool,
 ) -> Result<()> {
     if !module_roots
         .iter()
         .any(|lower| Path::new(&format!("{}{}", lower, relative)).exists())
     {
-        return bind_mount(stock_root, mount_point);
+        bind_mount(stock_root, mount_point)?;
+        if !disable_umount {
+            let _ = send_unmountable(mount_point);
+        }
+        return Ok(());
     }
 
     if !Path::new(stock_root).is_dir() {
@@ -146,6 +149,10 @@ fn mount_overlay_child(
         );
         bind_mount(stock_root, mount_point)?;
     }
+
+    if !disable_umount {
+        let _ = send_unmountable(mount_point);
+    }
     Ok(())
 }
 
@@ -164,9 +171,7 @@ pub fn mount_overlay(
     let mounts = Process::myself()?
         .mountinfo()
         .with_context(|| "get mountinfo")?;
-
-    // Fix: Use filter_map to handle Option<&str> and collect directly into Vec<&str>
-    let mut valid_mount_seq: Vec<&str> = mounts
+    let mut mount_seq: Vec<&str> = mounts
         .0
         .iter()
         .filter(|m| {
@@ -175,8 +180,8 @@ pub fn mount_overlay(
         .filter_map(|m| m.mount_point.to_str())
         .collect();
 
-    valid_mount_seq.sort();
-    valid_mount_seq.dedup();
+    mount_seq.sort();
+    mount_seq.dedup();
 
     mount_overlayfs(
         module_roots,
@@ -187,7 +192,11 @@ pub fn mount_overlay(
     )
     .with_context(|| "mount overlayfs for root failed")?;
 
-    for mount_point in valid_mount_seq {
+    if !disable_umount {
+        let _ = send_unmountable(target);
+    }
+
+    for mount_point in mount_seq {
         let relative = mount_point.replacen(target, "", 1);
         let child_stock_root = format!("{}{}", stock_root, relative);
 
@@ -195,8 +204,13 @@ pub fn mount_overlay(
             continue;
         }
 
-        if let Err(e) = mount_overlay_child(mount_point, &relative, module_roots, &child_stock_root)
-        {
+        if let Err(e) = mount_overlay_child(
+            mount_point,
+            &relative,
+            module_roots,
+            &child_stock_root,
+            disable_umount,
+        ) {
             warn!(
                 "failed to mount overlay for child {}: {:#}, revert",
                 mount_point, e
