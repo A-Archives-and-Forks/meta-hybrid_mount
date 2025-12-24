@@ -35,20 +35,12 @@ if [ ! -f "$BASE_DIR/config.toml" ]; then
   ui_print "- Installing default config"
   cat "$MODPATH/config.toml" > "$BASE_DIR/config.toml"
 fi
+
 IMG_FILE="$BASE_DIR/modules.img"
-IMG_SIZE_MB=2048
-if [ ! -f "$IMG_FILE" ]; then
-    ui_print "- Creating 2GB ext4 image for module storage..."
-    truncate -s ${IMG_SIZE_MB}M "$IMG_FILE"
-    /system/bin/mke2fs -t ext4 -O ^has_journal -F "$IMG_FILE" >/dev/null 2>&1
-    if [ $? -ne 0 ]; then
-        ui_print "! Failed to format ext4 image"
-    else
-        ui_print "- Image created successfully (No Journal Mode)"
-    fi
-else
-    ui_print "- Reusing existing modules.img"
+if [ -f "$IMG_FILE" ]; then
+    ui_print "- Existing modules.img found, keeping it."
 fi
+
 set_perm_recursive "$MODPATH" 0 0 0755 0644
 set_perm "$BIN_TARGET" 0 0 0755
 ui_print "- Installation complete"

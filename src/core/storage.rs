@@ -11,6 +11,7 @@ use rustix::{
     mount::{UnmountFlags, unmount},
 };
 use serde::Serialize;
+use walkdir::WalkDir;
 
 use crate::{core::state::RuntimeState, defs, utils};
 
@@ -51,6 +52,7 @@ pub fn get_usage(path: &Path) -> (u64, u64, u8) {
 pub fn setup(
     mnt_base: &Path,
     img_path: &Path,
+    moduledir: &Path,
     force_ext4: bool,
     mount_source: &str,
 ) -> Result<StorageHandle> {
@@ -59,13 +61,23 @@ pub fn setup(
     }
 
     if !force_ext4 && try_setup_tmpfs(mnt_base, mount_source)? {
+        if img_path.exists() {
+            log::info!(
+                "Tmpfs mode active. removing unused image: {}",
+                img_path.display()
+            );
+            if let Err(e) = fs::remove_file(img_path) {
+                log::warn!("Failed to remove unused modules.img: {}", e);
+            }
+        }
+
         return Ok(StorageHandle {
             mount_point: mnt_base.to_path_buf(),
             mode: "tmpfs".to_string(),
         });
     }
 
-    setup_ext4_image(mnt_base, img_path)
+    setup_ext4_image(mnt_base, img_path, moduledir)
 }
 
 fn try_setup_tmpfs(target: &Path, mount_source: &str) -> Result<bool> {
@@ -83,12 +95,12 @@ fn try_setup_tmpfs(target: &Path, mount_source: &str) -> Result<bool> {
     Ok(false)
 }
 
-fn setup_ext4_image(target: &Path, img_path: &Path) -> Result<StorageHandle> {
+fn setup_ext4_image(target: &Path, img_path: &Path, moduledir: &Path) -> Result<StorageHandle> {
     if !img_path.exists() {
         if let Some(parent) = img_path.parent() {
             fs::create_dir_all(parent)?;
         }
-        create_image(img_path).context("Failed to create modules.img")?;
+        create_image(img_path, moduledir).context("Failed to create modules.img")?;
     }
 
     if utils::mount_image(img_path, target).is_err() {
@@ -106,10 +118,33 @@ fn setup_ext4_image(target: &Path, img_path: &Path) -> Result<StorageHandle> {
     })
 }
 
-fn create_image(path: &Path) -> Result<()> {
+fn create_image(path: &Path, moduledir: &Path) -> Result<()> {
+    let mut total_size: u64 = 0;
+    if moduledir.exists() {
+        for entry in WalkDir::new(moduledir).into_iter().flatten() {
+            if entry.metadata().map(|m| m.is_file()).unwrap_or(false) {
+                total_size += entry.metadata().unwrap().len();
+            }
+        }
+    }
+
+    const OVERHEAD: u64 = 64 * 1024 * 1024;
+    const GRANULARITY: u64 = 5 * 1024 * 1024;
+
+    let target_raw = total_size + OVERHEAD;
+    let aligned_size = target_raw.div_ceil(GRANULARITY) * GRANULARITY;
+
+    let size_str = format!("{}", aligned_size);
+
+    log::info!(
+        "Creating dynamic modules.img. Modules: {} bytes. Target: {} bytes (Granularity: 5MB)",
+        total_size,
+        aligned_size
+    );
+
     let status = Command::new("truncate")
         .arg("-s")
-        .arg("2G")
+        .arg(&size_str)
         .arg(path)
         .status()?;
     if !status.success() {
