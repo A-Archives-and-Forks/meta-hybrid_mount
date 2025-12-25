@@ -3,7 +3,7 @@ use std::{
     ffi::CString,
     fmt as std_fmt,
     fs::{self, File, create_dir_all, remove_dir_all, remove_file, write},
-    io::{BufRead, Write},
+    io::{Write},
     os::fd::RawFd,
     os::unix::fs::{PermissionsExt, symlink},
     path::{Path, PathBuf},
