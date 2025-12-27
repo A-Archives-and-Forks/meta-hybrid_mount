@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 use std::{
-    ffi::CString,
     fs,
     path::{Path, PathBuf},
     process::Command,
@@ -22,8 +21,6 @@ use crate::{core::state::RuntimeState, defs, utils};
 use crate::try_umount::send_unmountable;
 
 const DEFAULT_SELINUX_CONTEXT: &str = "u:object_r:system_file:s0";
-
-const SELINUX_XATTR_KEY: &str = "security.selinux";
 
 pub struct StorageHandle {
     pub mount_point: PathBuf,
@@ -255,31 +252,9 @@ pub fn finalize_storage_permissions(target: &Path) {
         log::warn!("Failed to chown storage root: {}", e);
     }
 
-    if let Err(e) = set_selinux_context(target, DEFAULT_SELINUX_CONTEXT) {
+    if let Err(e) = utils::lsetfilecon(target, DEFAULT_SELINUX_CONTEXT) {
         log::warn!("Failed to set SELinux context: {}", e);
     }
-}
-
-fn set_selinux_context(path: &Path, context: &str) -> Result<()> {
-    let c_path = CString::new(path.as_os_str().as_encoded_bytes())?;
-
-    let c_val = CString::new(context)?;
-
-    unsafe {
-        let ret = libc::lsetxattr(
-            c_path.as_ptr(),
-            SELINUX_XATTR_KEY.as_ptr() as *const libc::c_char,
-            c_val.as_ptr() as *const libc::c_void,
-            c_val.as_bytes().len(),
-            0,
-        );
-
-        if ret != 0 {
-            bail!("lsetxattr failed");
-        }
-    }
-
-    Ok(())
 }
 
 pub fn print_status() -> Result<()> {
