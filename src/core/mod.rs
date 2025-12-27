@@ -64,8 +64,14 @@ impl OryzaEngine<Init> {
             mnt_base,
             img_path,
             &self.config.moduledir,
-            self.config.force_ext4,
-            self.config.use_erofs,
+            matches!(
+                self.config.overlay_mode,
+                crate::conf::config::OverlayMode::Ext4
+            ),
+            matches!(
+                self.config.overlay_mode,
+                crate::conf::config::OverlayMode::Erofs
+            ),
             &self.config.mountsource,
             self.config.disable_umount,
         )?;
