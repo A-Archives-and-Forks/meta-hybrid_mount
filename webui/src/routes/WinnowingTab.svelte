@@ -23,12 +23,16 @@
   const L_W = $derived(store.L.winnowing || {});
   const L_C = $derived(store.L.common || {});
 
+  function getFullPath(entry: ConflictEntry) {
+    return `/${entry.partition}/${entry.relative_path}`;
+  }
+
   async function loadData() {
     loading = true;
     try {
       conflicts = await API.getConflicts();
       if (store.conflicts.length !== conflicts.length) {
-          store.loadConflicts(); 
+          store.loadConflicts();
       }
     } catch (e) {
       store.showToast(store.L.modules?.conflictError || "Failed to load", "error");
@@ -38,20 +42,20 @@
   }
 
   async function selectWinner(item: ConflictEntry, moduleId: string) {
-    const idx = conflicts.findIndex(c => c.path === item.path);
+    const idx = conflicts.findIndex(c => c.partition === item.partition && c.relative_path === item.relative_path);
     if (idx !== -1) {
       conflicts[idx].selected = moduleId;
       conflicts[idx].is_forced = true;
     }
     try {
-      await API.setWinnowingRule(item.path, moduleId);
+      await API.setWinnowingRule(getFullPath(item), moduleId);
     } catch(e) {
       store.showToast("Failed to set rule", "error");
     }
   }
 
   let filteredConflicts = $derived(conflicts.filter(c => 
-    c.path.toLowerCase().includes(searchTerm.toLowerCase())
+    getFullPath(c).toLowerCase().includes(searchTerm.toLowerCase())
   ));
 
   onMount(loadData);
@@ -73,7 +77,7 @@
     <div class="list-wrapper">
         {#each Array(4) as _}
             <div class="conflict-card skeleton-card">
-                 <Skeleton width="100%" height="100px" borderRadius="16px"/>
+               <Skeleton width="100%" height="100px" borderRadius="16px"/>
             </div>
         {/each}
     </div>
@@ -87,13 +91,13 @@
     </div>
   {:else}
     <div class="conflict-list">
-      {#each filteredConflicts as item (item.path)}
+      {#each filteredConflicts as item (getFullPath(item))}
         <div class="conflict-card" class:forced={item.is_forced} transition:slide={{ axis: 'y' }}>
           <div class="card-header">
             <md-icon class="file-icon"><svg viewBox="0 0 24 24"><path d={ICONS.description} /></svg></md-icon>
             <div class="path-info">
                 <span class="path-label">{L_W.conflictPath || 'Conflict Path'}</span>
-                <span class="path-text" title={item.path}>{item.path}</span>
+                <span class="path-text" title={getFullPath(item)}>{getFullPath(item)}</span>
             </div>
           </div>
           
@@ -102,7 +106,7 @@
           <div class="card-body">
               <span class="selection-label">{L_W.selectProvider || 'Select Provider'}:</span>
               <md-chip-set>
-                {#each item.contenders as modId}
+                {#each item.contending_modules as modId}
                   <md-filter-chip 
                     label={modId}
                     selected={item.selected === modId}
