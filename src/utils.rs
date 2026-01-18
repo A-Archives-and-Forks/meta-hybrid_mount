@@ -154,11 +154,6 @@ fn copy_extended_attributes(src: &Path, dst: &Path) -> Result<()> {
             }
         }
     }
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
-    {
-        let _ = src;
-        let _ = dst;
-    }
     Ok(())
 }
 
@@ -171,10 +166,6 @@ pub fn set_overlay_opaque<P: AsRef<Path>>(path: P) -> Result<()> {
             b"y",
             XattrFlags::empty(),
         )?;
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
-    {
-        let _ = path;
     }
     Ok(())
 }
@@ -197,11 +188,6 @@ pub fn lsetfilecon<P: AsRef<Path>>(path: P, con: &str) -> Result<()> {
             );
         }
     }
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
-    {
-        let _ = path;
-        let _ = con;
-    }
     Ok(())
 }
 
@@ -220,7 +206,7 @@ pub fn lgetfilecon<P: AsRef<Path>>(path: P) -> Result<String> {
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub fn lgetfilecon<P: AsRef<Path>>(_path: P) -> Result<String> {
-    Ok(CONTEXT_SYSTEM.to_string())
+    unimplemented!();
 }
 
 pub fn copy_path_context<S: AsRef<Path>, D: AsRef<Path>>(src: S, dst: D) -> Result<()> {
