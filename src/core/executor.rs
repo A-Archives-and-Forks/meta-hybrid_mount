@@ -139,7 +139,7 @@ pub fn execute(plan: &MountPlan, config: &config::Config) -> Result<ExecutionRes
 
                 #[cfg(any(target_os = "linux", target_os = "android"))]
                 if !config.disable_umount
-                    && let Err(e) = crate::try_umount::send_unmountable(&op.target)
+                    && let Err(e) = crate::try_umount::send_umountable(&op.target)
                 {
                     log::warn!("Failed to schedule unmount for {}: {}", op.target, e);
                 }

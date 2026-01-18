@@ -70,9 +70,9 @@ pub fn handle_show_config(cli: &Cli) -> Result<()> {
 
 pub fn handle_save_config(cli: &Cli, payload: &str) -> Result<()> {
     if let Ok(old_config) = load_config(cli)
-        && let Err(e) = granary::create_silo(&old_config, "Auto-Backup", "Pre-WebUI Save")
+        && let Err(e) = granary::create_snapshot(&old_config, "Auto-Backup", "Pre-WebUI Save")
     {
-        log::warn!("Failed to create Granary backup: {}", e);
+        log::warn!("Failed to create Backup: {}", e);
     }
 
     let json_bytes = (0..payload.len())
@@ -191,38 +191,43 @@ pub fn handle_system_action(cli: &Cli, action: &str, value: Option<&str>) -> Res
     let config = load_config(cli)?;
 
     match action {
-        "granary-list" => {
-            let silos = granary::list_silos()?;
+        "backup-list" => {
+            let snapshots = granary::list_snapshots()?;
 
-            let json = serde_json::to_string(&silos)?;
+            let json = serde_json::to_string(&snapshots)?;
 
             println!("{}", json);
         }
-        "granary-create" => {
+        "backup-create" => {
             let reason = value.unwrap_or("Manual Backup");
 
-            granary::create_silo(&config, "Manual Snapshot", reason)?;
+            granary::create_snapshot(&config, "Manual Snapshot", reason)?;
 
-            println!("Silo created.");
+            println!("Snapshot created.");
         }
-        "granary-delete" => {
+        "backup-delete" => {
             if let Some(id) = value {
-                granary::delete_silo(id)?;
+                granary::delete_snapshot(id)?;
 
-                println!("Silo {} deleted.", id);
+                println!("Snapshot {} deleted.", id);
             } else {
-                bail!("Missing Silo ID");
+                bail!("Missing Snapshot ID");
             }
         }
-        "granary-restore" => {
+        "backup-restore" => {
             if let Some(id) = value {
-                granary::restore_silo(id)?;
+                granary::restore_snapshot(id)?;
 
-                println!("Silo {} restored. Please reboot.", id);
+                println!("Snapshot {} restored. Please reboot.", id);
             } else {
-                bail!("Missing Silo ID");
+                bail!("Missing Snapshot ID");
             }
         }
+        // Aliases for compatibility with old agricultural terms
+        "granary-list" => handle_system_action(cli, "backup-list", value)?,
+        "granary-create" => handle_system_action(cli, "backup-create", value)?,
+        "granary-delete" => handle_system_action(cli, "backup-delete", value)?,
+        "granary-restore" => handle_system_action(cli, "backup-restore", value)?,
         _ => bail!("Unknown action: {}", action),
     }
 

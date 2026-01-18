@@ -283,7 +283,7 @@ pub fn is_overlay_xattr_supported(path: &Path) -> bool {
         if let Ok(_) = statvfs(path) {
             let dummy_key = "user.hybrid_check";
             match extattr::lgetxattr(path, dummy_key) {
-                Err(e) if e.raw_os_error() == Some(libc::EOPNOTSUPP) => return false,
+                Err(e) if i32::from(e) == libc::EOPNOTSUPP => return false,
                 _ => return true,
             }
         }

@@ -17,7 +17,7 @@ use clap::Parser;
 use conf::{
     cli::{Cli, Commands},
     cli_handlers,
-    config::{CONFIG_FILE_DEFAULT, Config},
+    config::Config,
 };
 use mimalloc::MiMalloc;
 
