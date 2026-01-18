@@ -48,7 +48,7 @@ export default function GranaryTab() {
     try {
       const list = await API.getGranaryList();
       setSilos(list);
-    } catch (_e) {
+    } catch {
       store.showToast(L_G().loadError || "Failed to load Granary", "error");
     } finally {
       setLoading(false);
@@ -76,9 +76,8 @@ export default function GranaryTab() {
         L_G().restoreSuccess || "Restored successfully.",
         "success",
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      store.showToast(e.message, "error");
+    } catch (e: unknown) {
+      store.showToast((e as Error).message, "error");
     } finally {
       setBusyId(null);
       setSelectedSilo(null);
@@ -94,9 +93,8 @@ export default function GranaryTab() {
       await API.deleteSilo(silo.id);
       setSilos(silos().filter((s) => s.id !== silo.id));
       store.showToast(L_G().deleteSuccess || "Deleted", "success");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      store.showToast(e.message, "error");
+    } catch (e: unknown) {
+      store.showToast((e as Error).message, "error");
     } finally {
       setBusyId(null);
       setSelectedSilo(null);
@@ -117,9 +115,8 @@ export default function GranaryTab() {
       setShowCreateDialog(false);
       store.showToast(L_G().createSuccess || "Snapshot created", "success");
       await loadSilos();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (e: any) {
-      store.showToast(e.message, "error");
+    } catch (e: unknown) {
+      store.showToast((e as Error).message, "error");
     } finally {
       setIsCreating(false);
     }

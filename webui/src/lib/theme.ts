@@ -1,8 +1,3 @@
-/**
- * Copyright 2025 Meta-Hybrid Mount Authors
- * SPDX-License-Identifier: GPL-3.0-or-later
- */
-
 import {
   argbFromHex,
   hexFromArgb,
@@ -39,7 +34,7 @@ export const Monet = {
     let seedArgb;
     try {
       seedArgb = argbFromHex(seedHex);
-    } catch (_e) {
+    } catch {
       return;
     }
 

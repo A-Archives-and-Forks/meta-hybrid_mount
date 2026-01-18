@@ -32,7 +32,7 @@ const createGlobalStore = () => {
   const [isSystemDark, setIsSystemDark] = createSignal(false);
   const [lang, setLangSignal] = createSignal("en");
   const [seed, setSeed] = createSignal<string | null>(DEFAULT_SEED);
-  const [loadedLocale, setLoadedLocale] = createSignal<any>(null);
+  const [loadedLocale, setLoadedLocale] = createSignal<unknown>(null);
 
   const [toast, setToast] = createSignal<ToastMessage>({
     id: "init",
@@ -82,8 +82,9 @@ const createGlobalStore = () => {
     .map(([path, mod]: [string, unknown]) => {
       const match = path.match(/\/([^/]+)\.json$/);
       const code = match ? match[1] : "en";
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const name = (mod as any).default?.lang?.display || code.toUpperCase();
+      const name =
+        (mod as { default?: { lang?: { display?: string } } }).default?.lang
+          ?.display || code.toUpperCase();
       return { code, name };
     })
     .sort((a, b) => {
@@ -93,7 +94,7 @@ const createGlobalStore = () => {
     });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const L = createMemo((): any => loadedLocale()?.default || {});
+  const L = createMemo((): any => (loadedLocale() as { default: any })?.default || {});
 
   const modeStats = createMemo((): ModeStats => {
     const stats = { auto: 0, magic: 0, hymofs: 0 };
@@ -190,7 +191,7 @@ const createGlobalStore = () => {
       if (sysColor) {
         setSeed(sysColor);
       }
-    } catch (_e) {
+    } catch {
       // ignore
     }
 
@@ -202,7 +203,7 @@ const createGlobalStore = () => {
     try {
       const data = await API.loadConfig();
       setConfig(data);
-    } catch (_e) {
+    } catch {
       showToast("Failed to load config", "error");
     }
     setLoadingConfig(false);
@@ -213,7 +214,7 @@ const createGlobalStore = () => {
     try {
       await API.saveConfig(config());
       showToast(L().common?.saved || "Saved", "success");
-    } catch (_e) {
+    } catch {
       showToast("Failed to save config", "error");
     }
     setSavingConfig(false);
@@ -228,7 +229,7 @@ const createGlobalStore = () => {
         L().config?.resetSuccess || "Config reset to defaults",
         "success",
       );
-    } catch (_e) {
+    } catch {
       showToast("Failed to reset config", "error");
     }
     setSavingConfig(false);
@@ -239,7 +240,7 @@ const createGlobalStore = () => {
     try {
       const data = await API.scanModules(config().moduledir);
       setModules(data);
-    } catch (_e) {
+    } catch {
       showToast("Failed to load modules", "error");
     }
     setLoadingModules(false);
@@ -250,7 +251,7 @@ const createGlobalStore = () => {
     try {
       await API.saveModules(modules());
       showToast(L().common?.saved || "Saved", "success");
-    } catch (_e) {
+    } catch {
       showToast("Failed to save module modes", "error");
     }
     setSavingModules(false);
@@ -280,7 +281,7 @@ const createGlobalStore = () => {
       const diag = await API.getDiagnostics();
       setDiagnostics(diag);
       setLoadingDiagnostics(false);
-    } catch (_e) {
+    } catch {
       // ignore
     }
     setLoadingStatus(false);
@@ -297,7 +298,7 @@ const createGlobalStore = () => {
           "success",
         );
       }
-    } catch (_e) {
+    } catch {
       showToast(
         L().modules?.conflictError || "Failed to check conflicts",
         "error",

@@ -28,6 +28,11 @@ interface Contributor {
   bio?: string;
 }
 
+interface MdDialogElement extends HTMLElement {
+  show: () => void;
+  close: () => void;
+}
+
 export default function InfoTab() {
   const [contributors, setContributors] = createSignal<Contributor[]>([]);
   const [loading, setLoading] = createSignal(true);
@@ -46,8 +51,8 @@ export default function InfoTab() {
     try {
       const v = await API.getVersion();
       if (v) setVersion(v);
-    } catch (_e) {
-      console.error(_e);
+    } catch {
+      console.error("Failed to fetch version");
     }
     await fetchContributors();
   });
@@ -62,7 +67,7 @@ export default function InfoTab() {
           setLoading(false);
           return;
         }
-      } catch (_e) {
+      } catch {
         localStorage.removeItem(CACHE_KEY);
       }
     }
@@ -121,24 +126,20 @@ export default function InfoTab() {
 
   function openDonate(e: MouseEvent) {
     e.preventDefault();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (donateDialogRef as any)?.show();
+    (donateDialogRef as MdDialogElement)?.show();
   }
 
   function closeDonate() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (donateDialogRef as any)?.close();
+    (donateDialogRef as MdDialogElement)?.close();
   }
 
   function openQr(path: string) {
     setActiveQr(path);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (qrDialogRef as any)?.show();
+    (qrDialogRef as MdDialogElement)?.show();
   }
 
   function closeQr() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (qrDialogRef as any)?.close();
+    (qrDialogRef as MdDialogElement)?.close();
   }
 
   return (

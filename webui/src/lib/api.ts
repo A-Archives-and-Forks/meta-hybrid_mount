@@ -28,7 +28,7 @@ let ksuExec: KsuModule["exec"] | null = null;
 try {
   const ksu = await import("kernelsu").catch(() => null);
   ksuExec = ksu ? ksu.exec : null;
-} catch (_e) {
+} catch {
   console.warn("KernelSU module not found, defaulting to Mock/Fallback.");
 }
 
@@ -94,7 +94,7 @@ const RealAPI: AppAPI = {
         const loaded = JSON.parse(stdout);
         return { ...DEFAULT_CONFIG, ...loaded };
       }
-    } catch (_e) {
+    } catch {
       // ignore
     }
     return DEFAULT_CONFIG;
@@ -120,7 +120,7 @@ const RealAPI: AppAPI = {
     try {
       const { errno, stdout } = await ksuExec(cmd);
       if (errno === 0 && stdout) return JSON.parse(stdout);
-    } catch (_e) {
+    } catch {
       // ignore
     }
     return [];
@@ -158,7 +158,7 @@ const RealAPI: AppAPI = {
           used: formatBytes(state.storage_used ?? 0),
         };
       }
-    } catch (_e) {
+    } catch {
       // ignore
     }
     return { size: "-", used: "-", percent: "0%", type: null };
@@ -202,7 +202,7 @@ const RealAPI: AppAPI = {
         }
       }
       return info;
-    } catch (_e) {
+    } catch {
       return { kernel: "-", selinux: "-", mountBase: "-", activeMounts: [] };
     }
   },
