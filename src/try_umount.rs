@@ -8,7 +8,7 @@ use std::{
 };
 
 use anyhow::Result;
-use ksu::{NukeExt4Sysfs, TryUmount};
+use ksu::TryUmount;
 
 pub static TMPFS: OnceLock<String> = OnceLock::new();
 pub static LIST: LazyLock<Mutex<TryUmount>> = LazyLock::new(|| Mutex::new(TryUmount::new()));
