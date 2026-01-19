@@ -59,7 +59,10 @@ declare module "solid-js" {
       "md-filled-tonal-button": MdButtonProps;
       "md-outlined-text-field": MdTextFieldProps;
       "md-dialog": MdDialogProps;
-      "md-linear-progress": BaseProps & { value?: number; indeterminate?: boolean };
+      "md-linear-progress": BaseProps & {
+        value?: number;
+        indeterminate?: boolean;
+      };
       "md-chip-set": BaseProps;
       "md-filter-chip": MdChipProps;
       "md-input-chip": MdChipProps;

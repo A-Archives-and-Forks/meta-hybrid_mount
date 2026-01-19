@@ -18,6 +18,9 @@ import type {
 
 const localeModules = import.meta.glob("../locales/*.json", { eager: true });
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LocaleDict = any;
+
 export interface LogEntry {
   text: string;
   type: "info" | "warn" | "error" | "debug";
@@ -93,8 +96,10 @@ const createGlobalStore = () => {
       return a.name.localeCompare(b.name);
     });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const L = createMemo((): any => (loadedLocale() as { default: any })?.default || {});
+  const L = createMemo(
+    (): LocaleDict =>
+      (loadedLocale() as { default: LocaleDict })?.default || {},
+  );
 
   const modeStats = createMemo((): ModeStats => {
     const stats = { auto: 0, magic: 0, hymofs: 0 };
